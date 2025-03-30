@@ -42,6 +42,12 @@
                                         {{ submission.user.username }}'s Submission #{{ submission.submission_number }}
                                     </h6>
                                     <p class="card-text small text-muted">{{ submission.prompt|truncatechars:100 }}</p>
+                                    {% if user.is_authenticated and user != submission.user %}
+                                        <form method="post" action="{% url 'challenge_user' submission.id %}" class="mt-2">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-warning btn-sm w-100">Challenge This Entry</button>
+                                        </form>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

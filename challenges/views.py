@@ -13,8 +13,36 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from .forms import UserProfileForm
 from django.db.models import Count
+import base64
+from io import BytesIO
+from transformers import BlipProcessor, BlipForConditionalGeneration
+from PIL import Image
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+# Initialize BLIP model and processor
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+
+def generate_image_caption(image_path):
+    """Generate a caption for an image using BLIP."""
+    try:
+        # Load and preprocess the image
+        image = Image.open(image_path).convert('RGB')
+        inputs = processor(image, return_tensors="pt")
+        
+        # Generate caption
+        outputs = model.generate(**inputs, max_length=100)
+        caption = processor.decode(outputs[0], skip_special_tokens=True)
+        
+        return caption
+    except Exception as e:
+        print(f"Error generating caption: {str(e)}")
+        return "Error generating image caption"
+
+# Add debug logging
+print(f"OpenAI API Key loaded: {'Yes' if settings.OPENAI_API_KEY else 'No'}")
+print(f"API Key length: {len(settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else 0}")
 
 def register(request):
     if request.method == 'POST':
@@ -112,75 +140,136 @@ def submit_challenge(request):
 
 @login_required
 def challenge_user(request, submission_id):
+    print(f"Starting challenge_user view for submission_id: {submission_id}")
     submission = get_object_or_404(UserSubmission, id=submission_id)
-    user_submission = UserSubmission.objects.filter(
+    
+    # Get all submissions by the current user for this challenge
+    user_submissions = UserSubmission.objects.filter(
         user=request.user,
         challenge=submission.challenge
-    ).first()
+    ).order_by('-submission_number')
     
-    if not user_submission:
+    if not user_submissions.exists():
         messages.error(request, 'You need to submit an image first')
         return redirect('submit_challenge')
     
-    # Check if user has already challenged this submission
-    existing_challenge = ChallengeResult.objects.filter(
+    # Check if user has already challenged this specific submission with the same submission
+    if ChallengeResult.objects.filter(
         challenge=submission.challenge,
-        winner__user__in=[request.user, submission.user],
-        loser__user__in=[request.user, submission.user]
-    ).exists()
-    
-    if existing_challenge:
-        messages.warning(request, 'You have already challenged this submission!')
-        return redirect('view_challenge', challenge_id=submission.challenge.id)
+        winner=submission,
+        loser__user=request.user
+    ).exists():
+        messages.error(request, "You have already challenged this submission!")
+        return redirect('home')
     
     if request.method == 'POST':
-        # Use AI to judge the submissions
-        judge_prompt = f"""
-        You are an expert art critic judging AI-generated images for a daily challenge. Today's challenge is:
-        "{submission.challenge.description}"
-
-        Compare these two submissions:
-
-        Submission 1:
-        Prompt: {user_submission.prompt}
-        Image: [Generated based on this prompt]
-
-        Submission 2:
-        Prompt: {submission.prompt}
-        Image: [Generated based on this prompt]
-
-        Evaluate each submission based on:
-        1. How well the prompt aligns with the challenge requirements
-        2. How effectively the generated image fulfills the prompt's intent
-        3. Overall creativity and originality
-        4. Technical execution and quality
-
-        Provide a detailed analysis explaining which submission better meets the challenge criteria and why.
-        Be specific about the strengths and weaknesses of each submission in relation to the challenge.
-        """
+        print("Received POST request")
+        # Get the selected user submission
+        user_submission_id = request.POST.get('user_submission')
+        print(f"Selected user_submission_id: {user_submission_id}")
+        
+        if not user_submission_id:
+            messages.error(request, 'Please select your submission')
+            return redirect('challenge_user', submission_id=submission_id)
+            
+        user_submission = get_object_or_404(UserSubmission, id=user_submission_id, user=request.user)
+        print(f"Found user submission: {user_submission.id}")
         
         try:
+            print("Generating image captions...")
+            user_image_caption = generate_image_caption(user_submission.generated_image.path)
+            opponent_image_caption = generate_image_caption(submission.generated_image.path)
+            
+            print(f"User image caption: {user_image_caption}")
+            print(f"Opponent image caption: {opponent_image_caption}")
+            
+            # Use AI to judge the submissions
+            judge_prompt = f"""
+            You are an expert art critic judging AI-generated images for a daily challenge. Today's challenge is:
+            "{submission.challenge.description}"
+
+            Compare these two submissions:
+
+            Submission 1 (Your Submission):
+            Prompt: {user_submission.prompt}
+            Image Description: {user_image_caption}
+
+            Submission 2 (Opponent's Submission):
+            Prompt: {submission.prompt}
+            Image Description: {opponent_image_caption}
+
+            Evaluate each submission based on:
+            1. How well the prompt aligns with the challenge requirements
+            2. How effectively the generated image fulfills the prompt's intent
+            3. Overall creativity and originality
+            4. Technical execution and quality
+            5. Visual appeal and composition
+            6. Adherence to the challenge theme
+
+            Provide a detailed analysis explaining which submission better meets the challenge criteria and why.
+            Be specific about the strengths and weaknesses of each submission in relation to the challenge.
+            At the end of your analysis, clearly state which submission wins and why.
+            """
+            
+            print("Making API call to OpenAI...")
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo",
                 messages=[
-                    {"role": "system", "content": "You are an expert art critic specializing in evaluating AI-generated images against specific challenge criteria."},
-                    {"role": "user", "content": judge_prompt}
-                ]
+                    {
+                        "role": "user",
+                        "content": judge_prompt
+                    }
+                ],
+                max_tokens=1000
             )
+            print("API call successful")
             
             judge_feedback = response.choices[0].message.content
+            print(f"Judge feedback: {judge_feedback[:100]}...")  # Print first 100 chars
             
+            # Parse the judge's feedback to determine winner
+            judge_feedback_lower = judge_feedback.lower()
+            print(f"Judge feedback: {judge_feedback}")  # Print full feedback for debugging
+            
+            # Look for explicit winner declaration
+            if "submission 1 wins" in judge_feedback_lower:
+                winner_submission = user_submission
+                loser_submission = submission
+                print("Winner: Submission 1 (User's submission)")
+            elif "submission 2 wins" in judge_feedback_lower:
+                winner_submission = submission
+                loser_submission = user_submission
+                print("Winner: Submission 2 (Opponent's submission)")
+            else:
+                # Try to find the winner from the last sentence
+                sentences = judge_feedback.split('.')
+                last_sentence = sentences[-1].lower()
+                if "submission 1" in last_sentence and "wins" in last_sentence:
+                    winner_submission = user_submission
+                    loser_submission = submission
+                    print("Winner: Submission 1 (User's submission) - from last sentence")
+                elif "submission 2" in last_sentence and "wins" in last_sentence:
+                    winner_submission = submission
+                    loser_submission = user_submission
+                    print("Winner: Submission 2 (Opponent's submission) - from last sentence")
+                else:
+                    # If we still can't determine the winner, default to the challenger
+                    winner_submission = user_submission
+                    loser_submission = submission
+                    print("Warning: Could not determine winner from judge feedback, defaulting to challenger")
+
             # Create challenge result
-            result = ChallengeResult.objects.create(
+            challenge_result = ChallengeResult.objects.create(
                 challenge=submission.challenge,
-                winner=user_submission,
-                loser=submission,
+                winner=winner_submission,
+                loser=loser_submission,
                 judge_feedback=judge_feedback
             )
+            print(f"Created challenge result: {challenge_result.id}")
             
             # Update user profiles
-            winner_profile, _ = UserProfile.objects.get_or_create(user=user_submission.user)
-            loser_profile, _ = UserProfile.objects.get_or_create(user=submission.user)
+            winner_profile, _ = UserProfile.objects.get_or_create(user=winner_submission.user)
+            loser_profile, _ = UserProfile.objects.get_or_create(user=loser_submission.user)
             
             winner_profile.points += 10
             winner_profile.wins += 1
@@ -190,16 +279,22 @@ def challenge_user(request, submission_id):
             loser_profile.save()
             
             messages.success(request, 'Challenge completed!')
-            return redirect('challenge_result', result_id=result.id)
+            return redirect('challenge_result', result_id=challenge_result.id)
             
         except Exception as e:
+            print(f"Error in challenge_user: {str(e)}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             messages.error(request, f'Error judging submissions: {str(e)}')
             return redirect('challenge_user', submission_id=submission_id)
     
-    return render(request, 'challenges/challenge.html', {
+    context = {
         'submission': submission,
-        'user_submission': user_submission
-    })
+        'user_submissions': user_submissions,
+        'challenge': submission.challenge
+    }
+    return render(request, 'challenges/challenge.html', context)
 
 def leaderboard(request):
     profiles = UserProfile.objects.all().order_by('-points')
@@ -253,8 +348,16 @@ def logout_view(request):
 
 @login_required
 def challenge_result(request, result_id):
-    result = get_object_or_404(ChallengeResult, id=result_id)
-    return render(request, 'challenges/challenge_result.html', {'result': result})
+    try:
+        result = get_object_or_404(ChallengeResult, id=result_id)
+        # Ensure the images exist
+        if not result.winner.generated_image or not result.loser.generated_image:
+            messages.error(request, 'Error: One or more images are missing.')
+            return redirect('home')
+        return render(request, 'challenges/challenge_result.html', {'result': result})
+    except Exception as e:
+        messages.error(request, f'Error displaying challenge result: {str(e)}')
+        return redirect('home')
 
 def view_challenge(request, challenge_id):
     challenge = get_object_or_404(DailyChallenge, id=challenge_id)
