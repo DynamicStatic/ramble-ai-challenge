@@ -1,0 +1,56 @@
+{% extends 'challenges/base.html' %}
+
+{% block title %}Leaderboard - Ramble{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Leaderboard</h2>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>User</th>
+                                    <th>Points</th>
+                                    <th>Wins</th>
+                                    <th>Losses</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profile in profiles %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if profile.profile_picture %}
+                                                    <img src="{{ profile.profile_picture.url }}" 
+                                                         alt="{{ profile.user.username }}'s profile" 
+                                                         class="rounded-circle me-2"
+                                                         style="width: 32px; height: 32px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2"
+                                                         style="width: 32px; height: 32px;">
+                                                        <span>{{ profile.user.username|first|upper }}</span>
+                                                    </div>
+                                                {% endif %}
+                                                {{ profile.user.username }}
+                                            </div>
+                                        </td>
+                                        <td>{{ profile.points }}</td>
+                                        <td>{{ profile.wins }}</td>
+                                        <td>{{ profile.losses }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

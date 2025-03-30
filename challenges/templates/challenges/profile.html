@@ -1,0 +1,183 @@
+{% extends 'challenges/base.html' %}
+
+{% block title %}Your Profile - Ramble{% endblock %}
+
+{% block content %}
+<div class="featured-and-submissions">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card profile-card">
+                <div class="card-body text-center">
+                    {% if profile.profile_picture %}
+                        <img src="{{ profile.profile_picture.url }}" alt="Profile Picture" class="profile-picture mb-3">
+                    {% else %}
+                        <div class="profile-picture-placeholder mb-3">
+                            <span>{{ user.username|first|upper }}</span>
+                        </div>
+                    {% endif %}
+                    
+                    <h4 class="card-title">{{ user.username }}</h4>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <span class="stat-label">Points</span>
+                            <span class="stat-value">{{ profile.points }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Wins</span>
+                            <span class="stat-value">{{ profile.wins }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Losses</span>
+                            <span class="stat-value">{{ profile.losses }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Profile Information</h5>
+                    <form method="post" enctype="multipart/form-data" class="profile-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Profile Picture</label>
+                            {{ form.profile_picture }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">About Me</label>
+                            {{ form.about_me }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            {{ form.location }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Website</label>
+                            {{ form.website }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Twitter Handle</label>
+                            {{ form.twitter_handle }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Instagram Handle</label>
+                            {{ form.instagram_handle }}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Profile</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Your Submissions</h5>
+                    {% if submissions %}
+                        <div class="row submissions-grid">
+                            {% for submission in submissions %}
+                                <div class="col-md-4">
+                                    <div class="card submission-card">
+                                        <img src="{{ submission.generated_image.url }}" class="card-img-top" alt="Generated Image">
+                                        <div class="card-body">
+                                            <h6 class="card-subtitle mb-2 text-muted">Submission #{{ submission.submission_number }}</h6>
+                                            <p class="card-text"><small class="text-muted">Prompt: {{ submission.prompt }}</small></p>
+                                            <a href="{% url 'delete_submission' submission.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No submissions yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .profile-card {
+        margin-bottom: 20px;
+    }
+
+    .profile-picture {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid var(--primary-color);
+    }
+
+    .profile-picture-placeholder {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background-color: var(--secondary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        margin: 0 auto;
+    }
+
+    .stats-container {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 1rem;
+        padding: 1rem 0;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: var(--dark-color);
+        opacity: 0.8;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+
+    .profile-form .form-label {
+        font-weight: 500;
+        color: var(--dark-color);
+    }
+
+    .profile-form .form-control {
+        border-radius: 8px;
+    }
+
+    .submissions-grid {
+        margin: -5px;
+    }
+
+    .submission-card {
+        margin: 5px;
+        height: 100%;
+    }
+
+    .submission-card .card-img-top {
+        height: 200px;
+        object-fit: cover;
+    }
+
+    .submission-card .card-body {
+        padding: 12px;
+    }
+</style>
+{% endblock %} 

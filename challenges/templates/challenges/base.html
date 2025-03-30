@@ -1,0 +1,561 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ramble{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #27ae60;  /* Darker green */
+            --secondary-color: #3498db;  /* Bright blue */
+            --dark-color: #2c3e50;  /* Dark blue-gray */
+            --light-color: #ecf0f1;  /* Light gray */
+            --accent-color: #1abc9c;  /* Turquoise */
+        }
+
+        body {
+            background: linear-gradient(135deg, 
+                rgba(23, 32, 42, 0.95), 
+                rgba(44, 62, 80, 0.95)
+            );
+            background-image: 
+                linear-gradient(135deg, 
+                    rgba(23, 32, 42, 0.95), 
+                    rgba(44, 62, 80, 0.95)
+                ),
+                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeBlend mode='screen'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ecf0f1;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .page-wrapper {
+            display: flex;
+            min-height: calc(100vh - 45px);
+            margin-top: 0;
+        }
+
+        .container {
+            padding: 20px;
+            margin-top: 0;
+        }
+
+        .navbar .container {
+            padding-top: 0.2rem;
+            padding-bottom: 0.2rem;
+            margin-top: 0;  /* Reset margin since this is a navbar container */
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 0;
+        }
+
+        .navbar-brand {
+            color: var(--light-color) !important;
+            font-weight: bold;
+            font-size: 1.3rem;  /* Slightly smaller font */
+            display: flex;
+            align-items: center;
+            gap: 8px;  /* Reduced gap */
+        }
+
+        .logo-img {
+            height: 28px;  /* Smaller logo */
+            width: auto;
+            border-radius: 6px;  /* Slightly reduced border radius */
+            padding: 2px;
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+
+        .navbar-brand:hover .logo-img {
+            transform: translateY(-2px);
+            background-color: rgba(255, 255, 255, 0.2);  /* Slightly more visible on hover */
+        }
+
+        .nav-link {
+            color: var(--light-color) !important;
+            transition: color 0.3s ease;
+            padding-top: 0.4rem;    /* Reduced padding */
+            padding-bottom: 0.4rem;  /* Reduced padding */
+        }
+
+        .nav-link:hover {
+            color: var(--accent-color) !important;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 10px;  /* Add consistent bottom margin */
+            font-size: 0.9rem;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            color: var(--dark-color);
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .card img.card-img-top {
+            max-height: 300px;
+            object-fit: contain;
+            background: #f8f9fa;
+        }
+
+        .card .rounded-circle {
+            width: 32px;
+            height: 32px;
+        }
+
+        .card small {
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            padding: 0.3rem 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-warning:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            border-color: #e74c3c;
+            transition: all 0.3s ease;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+            border-color: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(39, 174, 96, 0.1);
+        }
+
+        .footer {
+            background: linear-gradient(135deg, var(--dark-color), var(--secondary-color));
+            color: var(--light-color);
+            padding: 0.5rem 0;
+            margin-top: auto;
+            margin-left: -200px;
+            width: calc(100% + 200px);
+        }
+
+        .footer .container {
+            padding: 0;
+            margin: 0 auto;
+        }
+
+        .alert {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 10px;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(39, 174, 96, 0.25);
+        }
+
+        .rounded-circle {
+            border: 3px solid var(--primary-color);
+        }
+
+        .sidebar {
+            position: relative;
+            width: 200px;
+            background: rgba(20, 25, 30, 0.7);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .sidebar-content {
+            position: fixed;
+            top: 45px;
+            width: 200px;
+            padding: 15px;
+            height: calc(100vh - 45px);
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            color: var(--light-color);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .challenge-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .challenge-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .challenge-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .challenge-date {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .challenge-desc {
+            font-size: 0.9rem;
+            color: var(--light-color);
+            margin-top: 4px;
+        }
+
+        .challenge-stats {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .btn-outline-light {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .btn-outline-light:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-content .container {
+            max-width: none;
+            margin: 0;
+            padding: 0 20px;  /* Add horizontal padding */
+            width: 100%;
+        }
+
+        .col-md-8.offset-md-2 {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            max-width: 100%;
+            flex: 0 0 100%;
+        }
+
+        .row {
+            margin: 0;
+            padding: 0 0 20px 0;  /* Added bottom padding */
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .col-md-6 {
+            padding: 5px;
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+        }
+
+        .card {
+            margin: 5px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .card img.card-img-top {
+            height: 200px;
+            object-fit: cover;
+            width: 100%;
+            background: #f8f9fa;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .user-info .rounded-circle {
+            width: 32px;
+            height: 32px;
+            margin-right: 10px;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .prompt-section {
+            margin-top: auto;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Featured challenge card specific */
+        .card.mb-4 {
+            margin: 5px 0 20px 0;
+            width: fit-content;
+            min-width: 300px;
+            max-width: 600px;
+        }
+
+        .card.mb-4 .card-body {
+            padding: 15px;
+            display: block;
+        }
+
+        .card.mb-4 .card-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card.mb-4 .card-text {
+            margin-bottom: 1rem;
+        }
+
+        .card.mb-4 .btn {
+            margin-top: 0.5rem;
+        }
+
+        .alert {
+            margin: 5px;
+            padding: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+            }
+
+            .sidebar.show {
+                width: 200px;
+            }
+
+            .sidebar-content {
+                display: none;
+            }
+
+            .sidebar.show .sidebar-content {
+                display: block;
+                z-index: 1000;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+
+        .challenge-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        /* Reduce spacing between elements */
+        .mb-3 {
+            margin-bottom: 0.5rem !important;
+        }
+
+        .mb-4 {
+            margin-bottom: 0.8rem !important;
+        }
+
+        .featured-and-submissions {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px 30px 15px;  /* Added bottom padding */
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="{% static 'challenges/images/logo.jpg' %}" alt="Ramble" class="logo-img">
+                Ramble
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'gallery' %}">Gallery</a>
+                    </li>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'submit_challenge' %}">Submit</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'leaderboard' %}">Leaderboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'register' %}">Register</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-wrapper">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <h3 class="sidebar-title">Prior Challenges</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button class="btn btn-sm btn-outline-light" onclick="filterChallenges('all')">All</button>
+                    <button class="btn btn-sm btn-outline-light" onclick="filterChallenges('recent')">Recent</button>
+                    <button class="btn btn-sm btn-outline-light" onclick="filterChallenges('popular')">Popular</button>
+                </div>
+                <ul class="challenge-list">
+                    {% for challenge in prior_challenges %}
+                        <li class="challenge-item">
+                            <a href="{% url 'view_challenge' challenge.id %}" class="challenge-link">
+                                <div class="challenge-date">{{ challenge.date|date:"F j, Y" }}</div>
+                                <div class="challenge-desc">{{ challenge.description|truncatechars:50 }}</div>
+                                <div class="challenge-stats">
+                                    <small class="text-muted">
+                                        <i class="fas fa-users"></i> {{ challenge.usersubmission_set.count }} submissions
+                                    </small>
+                                </div>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-content">
+            <!-- Messages -->
+            {% if messages %}
+                <div class="container">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Main Content -->
+            <div class="container">
+                {% block content %}
+                {% endblock %}
+            </div>
+
+            <!-- Footer -->
+            <footer class="footer mt-auto">
+                <div class="container text-center">
+                    <span>© 2024 Ramble. All rights reserved.</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

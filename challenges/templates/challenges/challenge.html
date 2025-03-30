@@ -1,0 +1,48 @@
+{% extends 'challenges/base.html' %}
+
+{% block title %}Challenge - Daily AI Challenge{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Challenge Another User</h2>
+                
+                <div class="row">
+                    <!-- Your Submission -->
+                    <div class="col-md-6">
+                        <h4>Your Submission</h4>
+                        <div class="card">
+                            <img src="{{ user_submission.generated_image.url }}" class="card-img-top" alt="Your Image">
+                            <div class="card-body">
+                                <h5 class="card-title">Your Prompt</h5>
+                                <p class="card-text">{{ user_submission.prompt }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Opponent's Submission -->
+                    <div class="col-md-6">
+                        <h4>Opponent's Submission</h4>
+                        <div class="card">
+                            <img src="{{ submission.generated_image.url }}" class="card-img-top" alt="Opponent's Image">
+                            <div class="card-body">
+                                <h5 class="card-title">By {{ submission.user.username }}</h5>
+                                <p class="card-text">{{ submission.prompt }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-lg">Start Challenge</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

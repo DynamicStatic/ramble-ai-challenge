@@ -1,0 +1,62 @@
+{% extends 'challenges/base.html' %}
+
+{% block title %}{{ challenge.date|date:"F j, Y" }} Challenge{% endblock %}
+
+{% block content %}
+<div class="challenge-detail">
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Challenge from {{ challenge.date|date:"F j, Y" }}</h2>
+            <p class="card-text">{{ challenge.description }}</p>
+            {% if user.is_authenticated %}
+                <a href="{% url 'submit_challenge' %}" class="btn btn-primary">Submit Your Entry</a>
+            {% else %}
+                <p class="text-muted">Please <a href="{% url 'login' %}">log in</a> to submit your entry.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if submissions %}
+        <h3 class="mb-3">Submissions for this Challenge</h3>
+        <div class="row">
+            {% for submission in submissions %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if submission.user.userprofile.profile_picture %}
+                                    <img src="{{ submission.user.userprofile.profile_picture.url }}" 
+                                         alt="{{ submission.user.username }}'s profile" 
+                                         class="rounded-circle me-2"
+                                         style="width: 40px; height: 40px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2"
+                                         style="width: 40px; height: 40px;">
+                                        <span>{{ submission.user.username|first|upper }}</span>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <h5 class="card-title mb-0">{{ submission.user.username }}</h5>
+                                    <small class="text-muted">Submission #{{ submission.submission_number }}</small>
+                                </div>
+                            </div>
+                            <img src="{{ submission.generated_image.url }}" class="card-img-top mb-3" alt="Generated Image">
+                            <p class="card-text"><small class="text-muted">Prompt: {{ submission.prompt }}</small></p>
+                            {% if user.is_authenticated and user != submission.user %}
+                                <form method="post" action="{% url 'challenge_user' submission.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-warning">Challenge This Entry</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No submissions yet for this challenge.
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

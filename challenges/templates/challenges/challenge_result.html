@@ -1,0 +1,159 @@
+{% extends 'challenges/base.html' %}
+
+{% block title %}Challenge Result - Daily AI Challenge{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title">Challenge Result</h2>
+                    <div class="row">
+                        <!-- Winner -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">Winner</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">{{ result.winner.user.username }}'s Submission #{{ result.winner.submission_number }}</h6>
+                                    <div class="submission-image-container">
+                                        <img src="{{ result.winner.generated_image.url }}" 
+                                             class="submission-image" 
+                                             alt="Winner's submission"
+                                             data-bs-toggle="modal"
+                                             data-bs-target="#imageModal"
+                                             onclick="showImage(this.src, '{{ result.winner.prompt }}')">
+                                    </div>
+                                    <p class="card-text mt-3"><small class="text-muted">Prompt: {{ result.winner.prompt }}</small></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Runner-up -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">Runner-up</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">{{ result.loser.user.username }}'s Submission #{{ result.loser.submission_number }}</h6>
+                                    <div class="submission-image-container">
+                                        <img src="{{ result.loser.generated_image.url }}" 
+                                             class="submission-image" 
+                                             alt="Runner-up's submission"
+                                             data-bs-toggle="modal"
+                                             data-bs-target="#imageModal"
+                                             onclick="showImage(this.src, '{{ result.loser.prompt }}')">
+                                    </div>
+                                    <p class="card-text mt-3"><small class="text-muted">Prompt: {{ result.loser.prompt }}</small></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Judge's Feedback -->
+                    <div class="mt-4">
+                        <h5>Judge's Feedback</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <p class="card-text">{{ result.judge_feedback|linebreaks }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Back Button -->
+                    <div class="mt-4">
+                        <a href="{% url 'home' %}" class="btn btn-primary">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-light" id="modalPrompt"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex align-items-center justify-content-center p-3">
+                <img id="modalImage" src="" class="modal-image" alt="Full size image">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .submission-image-container {
+        width: 100%;
+        margin: 1rem 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #f8f9fa;
+        border-radius: 8px;
+        overflow: hidden;
+        min-height: 200px;
+    }
+
+    .submission-image {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        object-fit: contain;
+    }
+
+    .submission-image:hover {
+        transform: scale(1.02);
+    }
+
+    /* Modal styles */
+    .modal-image {
+        max-width: 95vw;
+        max-height: 90vh;
+        object-fit: contain;
+    }
+
+    .modal-content {
+        background-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .modal-header {
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-body {
+        padding: 0;
+        height: calc(100vh - 60px);
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showImage(src, prompt) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('modalPrompt').textContent = prompt;
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
+        if (modal) modal.hide();
+    }
+});
+
+// Close modal on click outside image
+document.querySelector('.modal-body').addEventListener('click', function(e) {
+    if (e.target === this) {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
+        if (modal) modal.hide();
+    }
+});
+</script>
+{% endblock %} 
