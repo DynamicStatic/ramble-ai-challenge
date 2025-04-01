@@ -5,7 +5,6 @@ from django.utils import timezone
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
 from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile
-from openai import OpenAI
 import os
 from django.conf import settings
 import requests
@@ -15,18 +14,32 @@ from .forms import UserProfileForm
 from django.db.models import Count
 import base64
 from io import BytesIO
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
+import json
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize BLIP model and processor only when needed
+processor = None
+model = None
 
-# Initialize BLIP model and processor
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+def get_blip_model():
+    global processor, model
+    if processor is None or model is None:
+        try:
+            from transformers import BlipProcessor, BlipForConditionalGeneration
+            processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+        except Exception as e:
+            print(f"Error initializing BLIP model: {str(e)}")
+            return None, None
+    return processor, model
 
 def generate_image_caption(image_path):
     """Generate a caption for an image using BLIP."""
     try:
+        processor, model = get_blip_model()
+        if processor is None or model is None:
+            return "Error: Could not initialize image captioning model"
+            
         # Load and preprocess the image
         image = Image.open(image_path).convert('RGB')
         inputs = processor(image, return_tensors="pt")
@@ -90,6 +103,7 @@ def submit_challenge(request):
             return redirect('submit_challenge')
         
         try:
+            print(f"Starting image generation for prompt: {prompt}")
             # Get the next submission number for this user and challenge
             last_submission = UserSubmission.objects.filter(
                 user=request.user,
@@ -97,28 +111,48 @@ def submit_challenge(request):
             ).order_by('-submission_number').first()
             
             next_submission_number = (last_submission.submission_number + 1) if last_submission else 1
+            print(f"Next submission number: {next_submission_number}")
             
             # Generate image using OpenAI API
-            response = client.images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                size="1024x1024",
-                quality="standard",
-                n=1,
+            print("Making request to OpenAI API...")
+            headers = {
+                "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": "dall-e-3",
+                "prompt": prompt,
+                "size": "1024x1024",
+                "quality": "standard",
+                "n": 1
+            }
+            
+            response = requests.post(
+                "https://api.openai.com/v1/images/generations",
+                headers=headers,
+                json=data
             )
+            response.raise_for_status()
+            print("Received response from OpenAI API")
             
             # Get the image URL
-            image_url = response.data[0].url
+            image_url = response.json()['data'][0]['url']
+            print(f"Image URL received: {image_url}")
             
             # Download the image
+            print("Downloading image...")
             img_response = requests.get(image_url)
             img_response.raise_for_status()
+            print("Image downloaded successfully")
             
             # Generate a filename
             filename = f"submissions/{request.user.username}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+            print(f"Saving image as: {filename}")
             
             # Save the image to media storage
             image_path = default_storage.save(filename, ContentFile(img_response.content))
+            print(f"Image saved successfully at: {image_path}")
             
             # Create submission with the local image path
             submission = UserSubmission.objects.create(
@@ -128,11 +162,16 @@ def submit_challenge(request):
                 generated_image=image_path,
                 submission_number=next_submission_number
             )
+            print(f"Submission created successfully with ID: {submission.id}")
             
             messages.success(request, 'Your submission has been created!')
             return redirect('home')
             
         except Exception as e:
+            print(f"Error in submit_challenge: {str(e)}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             messages.error(request, f'Error generating image: {str(e)}')
             return redirect('submit_challenge')
     
@@ -212,19 +251,31 @@ def challenge_user(request, submission_id):
             """
             
             print("Making API call to OpenAI...")
-            response = client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[
+            headers = {
+                "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": "gpt-4-turbo",
+                "messages": [
                     {
                         "role": "user",
                         "content": judge_prompt
                     }
                 ],
-                max_tokens=1000
+                "max_tokens": 1000
+            }
+            
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=data
             )
+            response.raise_for_status()
             print("API call successful")
             
-            judge_feedback = response.choices[0].message.content
+            judge_feedback = response.json()['choices'][0]['message']['content']
             print(f"Judge feedback: {judge_feedback[:100]}...")  # Print first 100 chars
             
             # Parse the judge's feedback to determine winner
