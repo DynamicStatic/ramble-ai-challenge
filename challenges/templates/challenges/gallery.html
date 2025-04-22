@@ -1,44 +1,32 @@
-{% extends 'challenges/base.html' %}
+{% extends 'base.html' %}
 
-{% block title %}Gallery - Daily AI Challenge{% endblock %}
+{% block title %}Gallery - Ramble{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
+    <h1 class="mb-4">Gallery</h1>
+    
     <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="card-title mb-4">Challenge Gallery</h2>
-                    
-                    <div class="row g-4">
-                        {% for submission in submissions %}
-                        <div class="col-md-4 col-lg-3">
-                            <div class="card h-100">
-                                <div class="submission-image-container">
-                                    <img src="{{ submission.generated_image.url }}" 
-                                         class="submission-image" 
-                                         alt="Submission #{{ submission.submission_number }}"
-                                         data-bs-toggle="modal"
-                                         data-bs-target="#imageModal"
-                                         onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
-                                </div>
-                                <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">
-                                        {{ submission.user.username }}'s Submission #{{ submission.submission_number }}
-                                    </h6>
-                                    <p class="card-text small text-muted">{{ submission.prompt|truncatechars:100 }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <p class="text-center text-muted">No submissions yet.</p>
-                        </div>
-                        {% endfor %}
-                    </div>
+        {% for submission in submissions %}
+            <div class="col-md-4 mb-4">
+                <div class="gallery-item">
+                    {% if submission.generated_image %}
+                        <img src="{{ submission.generated_image.url }}" 
+                             class="gallery-image" 
+                             alt="Submission image"
+                             data-bs-toggle="modal"
+                             data-bs-target="#imageModal"
+                             data-image-url="{{ submission.generated_image.url }}"
+                             data-prompt="{{ submission.prompt|escapejs }}"
+                             data-submission-id="{{ submission.id }}">
+                    {% endif %}
                 </div>
             </div>
-        </div>
+        {% empty %}
+            <div class="col-12">
+                <p class="text-center">No submissions yet.</p>
+            </div>
+        {% endfor %}
     </div>
 </div>
 
@@ -51,38 +39,42 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body d-flex align-items-center justify-content-center p-3">
+                <button class="btn btn-dark btn-lg position-absolute start-0 ms-3" id="prevImage">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
                 <img id="modalImage" src="" class="modal-image" alt="Full size image">
+                <button class="btn btn-dark btn-lg position-absolute end-0 me-3" id="nextImage">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    .submission-image-container {
+    .gallery-item {
+        position: relative;
         width: 100%;
         aspect-ratio: 1;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: #f8f9fa;
         overflow: hidden;
-    }
-
-    .submission-image {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
+        border-radius: 8px;
         cursor: pointer;
         transition: transform 0.2s ease;
     }
 
-    .submission-image:hover {
-        transform: scale(1.05);
+    .gallery-item:hover {
+        transform: scale(1.02);
+    }
+
+    .gallery-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
 
     .modal-image {
-        max-width: 95vw;
-        max-height: 90vh;
+        max-width: 90vw;
+        max-height: 80vh;
         object-fit: contain;
     }
 
@@ -99,31 +91,75 @@
         padding: 0;
         height: calc(100vh - 60px);
     }
-</style>
 
+    #prevImage, #nextImage {
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+
+    #prevImage:hover, #nextImage:hover {
+        opacity: 1;
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function showImage(src, prompt) {
-    document.getElementById('modalImage').src = src;
-    document.getElementById('modalPrompt').textContent = prompt;
+let currentImageIndex = 0;
+let images = [];
+
+function showImage(index) {
+    const image = images[index];
+    document.getElementById('modalImage').src = image.url;
+    document.getElementById('modalPrompt').textContent = image.prompt;
+    currentImageIndex = index;
 }
 
-// Close modal on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
-        if (modal) modal.hide();
+function showNextImage() {
+    if (currentImageIndex < images.length - 1) {
+        showImage(currentImageIndex + 1);
     }
+}
+
+function showPrevImage() {
+    if (currentImageIndex > 0) {
+        showImage(currentImageIndex - 1);
+    }
+}
+
+// Initialize images array when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const galleryImages = document.querySelectorAll('.gallery-image');
+    images = Array.from(galleryImages).map(img => ({
+        url: img.dataset.imageUrl,
+        prompt: img.dataset.prompt,
+        id: img.dataset.submissionId
+    }));
+
+    // Add click handlers for navigation buttons
+    document.getElementById('nextImage').addEventListener('click', showNextImage);
+    document.getElementById('prevImage').addEventListener('click', showPrevImage);
+
+    // Add keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (document.getElementById('imageModal').classList.contains('show')) {
+            if (e.key === 'ArrowRight') {
+                showNextImage();
+            } else if (e.key === 'ArrowLeft') {
+                showPrevImage();
+            } else if (e.key === 'Escape') {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
+                if (modal) modal.hide();
+            }
+        }
+    });
 });
 
-// Close modal on click outside image
-document.querySelector('.modal-body').addEventListener('click', function(e) {
-    if (e.target === this) {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('imageModal'));
-        if (modal) modal.hide();
-    }
+// Update click handler for gallery images
+document.querySelectorAll('.gallery-image').forEach((img, index) => {
+    img.addEventListener('click', function() {
+        showImage(index);
+    });
 });
 </script>
 {% endblock %} 

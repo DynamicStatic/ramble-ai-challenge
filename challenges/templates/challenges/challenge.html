@@ -1,76 +1,83 @@
-{% extends 'challenges/base.html' %}
-
-{% block title %}Challenge - Daily AI Challenge{% endblock %}
+{% extends 'base.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-10 mx-auto">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Challenge Another User</h2>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="row">
-                        <!-- Your Submissions -->
-                        <div class="col-md-6">
-                            <h4>Your Submissions</h4>
-                            <div class="row g-3">
-                                {% for user_submission in user_submissions %}
-                                <div class="col-12">
-                                    <div class="card">
-                                        <div class="submission-image-container">
-                                            <img src="{{ user_submission.generated_image.url }}" 
-                                                 class="submission-image" 
-                                                 alt="Your Submission #{{ user_submission.submission_number }}"
-                                                 data-bs-toggle="modal"
-                                                 data-bs-target="#imageModal"
-                                                 onclick="showImage('{{ user_submission.generated_image.url }}', '{{ user_submission.prompt|escapejs }}')">
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="radio" 
-                                                       name="user_submission" 
-                                                       id="submission_{{ user_submission.id }}" 
-                                                       value="{{ user_submission.id }}"
-                                                       {% if forloop.first %}checked{% endif %}
-                                                       required>
-                                                <label class="form-check-label" for="submission_{{ user_submission.id }}">
-                                                    Submission #{{ user_submission.submission_number }}
-                                                </label>
-                                            </div>
-                                            <p class="card-text small text-muted">{{ user_submission.prompt|truncatechars:100 }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h1 class="h3 mb-0">Challenge Submission</h1>
+        </div>
+        <div class="card-body">
+            <h2 class="h4 mb-3">Challenge: {{ challenge.title }}</h2>
+            <p class="lead">{{ challenge.description }}</p>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="h5 mb-0">Opponent's Submission</h3>
                         </div>
-                        
-                        <!-- Opponent's Submission -->
-                        <div class="col-md-6">
-                            <h4>Opponent's Submission</h4>
-                            <div class="card">
-                                <div class="submission-image-container">
+                        <div class="card-body">
+                            {% if submission.generated_image %}
+                                <div class="submission-image-container mb-3">
                                     <img src="{{ submission.generated_image.url }}" 
                                          class="submission-image" 
-                                         alt="Opponent's Submission"
+                                         alt="Opponent's submission"
                                          data-bs-toggle="modal"
                                          data-bs-target="#imageModal"
                                          onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
                                 </div>
-                                <div class="card-body">
-                                    <h5 class="card-title">By {{ submission.user.username }}</h5>
-                                    <p class="card-text">{{ submission.prompt }}</p>
-                                </div>
-                            </div>
+                            {% endif %}
+                            <p><strong>By:</strong> {{ submission.user.username }}</p>
+                            <p><strong>Prompt:</strong> {{ submission.prompt }}</p>
                         </div>
                     </div>
-
-                    <div class="text-center mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg">Start Challenge</button>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="h5 mb-0">Your Submissions</h3>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                {% if user_submissions %}
+                                    <div class="mb-3">
+                                        <label class="form-label">Select your submission to challenge with:</label>
+                                        {% for user_submission in user_submissions %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" 
+                                                       name="user_submission" 
+                                                       id="submission_{{ user_submission.id }}" 
+                                                       value="{{ user_submission.id }}" required>
+                                                <label class="form-check-label" for="submission_{{ user_submission.id }}">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if user_submission.generated_image %}
+                                                            <img src="{{ user_submission.generated_image.url }}" 
+                                                                 class="me-2" 
+                                                                 style="width: 50px; height: 50px; object-fit: cover;">
+                                                        {% endif %}
+                                                        <div>
+                                                            <strong>Submission #{{ user_submission.submission_number }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">{{ user_submission.prompt|truncatechars:50 }}</small>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-primary">Submit Challenge</button>
+                                {% else %}
+                                    <p>You haven't submitted any images for this challenge yet.</p>
+                                    <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit an Entry</a>
+                                {% endif %}
+                            </form>
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
@@ -134,7 +141,6 @@
         height: calc(100vh - 60px);
     }
 </style>
-
 {% endblock %}
 
 {% block extra_js %}

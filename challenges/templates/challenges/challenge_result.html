@@ -1,69 +1,74 @@
-{% extends 'challenges/base.html' %}
-
-{% block title %}Challenge Result - Daily AI Challenge{% endblock %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h2 class="card-title">Challenge Result</h2>
-                    <div class="row">
-                        <!-- Winner -->
-                        <div class="col-md-6 mb-4">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Winner</h5>
-                                    <h6 class="card-subtitle mb-2 text-muted">{{ result.winner.user.username }}'s Submission #{{ result.winner.submission_number }}</h6>
-                                    <div class="submission-image-container">
-                                        <img src="{{ result.winner.generated_image.url }}" 
-                                             class="submission-image" 
-                                             alt="Winner's submission"
-                                             data-bs-toggle="modal"
-                                             data-bs-target="#imageModal"
-                                             onclick="showImage(this.src, '{{ result.winner.prompt }}')">
-                                    </div>
-                                    <p class="card-text mt-3"><small class="text-muted">Prompt: {{ result.winner.prompt }}</small></p>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h1 class="h3 mb-0">Challenge Result</h1>
+        </div>
+        <div class="card-body">
+            <h2 class="h4 mb-3">Challenge: {{ result.challenge.title }}</h2>
+            <p class="lead">{{ result.challenge.description }}</p>
+            
+            <div class="row mb-4">
+                <!-- Winner's Submission -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h3 class="h5 mb-0">Winner: {{ result.winner.user.username }}</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if result.winner.generated_image %}
+                                <div class="submission-image-container mb-3">
+                                    <img src="{{ result.winner.generated_image.url }}" 
+                                         class="submission-image" 
+                                         alt="Winner's submission"
+                                         data-bs-toggle="modal"
+                                         data-bs-target="#imageModal"
+                                         onclick="showImage('{{ result.winner.generated_image.url }}', '{{ result.winner.prompt|escapejs }}')">
                                 </div>
-                            </div>
+                            {% endif %}
+                            <p><strong>Prompt:</strong> {{ result.winner.prompt }}</p>
                         </div>
-
-                        <!-- Runner-up -->
-                        <div class="col-md-6 mb-4">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">Runner-up</h5>
-                                    <h6 class="card-subtitle mb-2 text-muted">{{ result.loser.user.username }}'s Submission #{{ result.loser.submission_number }}</h6>
-                                    <div class="submission-image-container">
-                                        <img src="{{ result.loser.generated_image.url }}" 
-                                             class="submission-image" 
-                                             alt="Runner-up's submission"
-                                             data-bs-toggle="modal"
-                                             data-bs-target="#imageModal"
-                                             onclick="showImage(this.src, '{{ result.loser.prompt }}')">
-                                    </div>
-                                    <p class="card-text mt-3"><small class="text-muted">Prompt: {{ result.loser.prompt }}</small></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Judge's Feedback -->
-                    <div class="mt-4">
-                        <h5>Judge's Feedback</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                <p class="card-text">{{ result.judge_feedback|linebreaks }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Back Button -->
-                    <div class="mt-4">
-                        <a href="{% url 'home' %}" class="btn btn-primary">Back to Home</a>
                     </div>
                 </div>
+                
+                <!-- Loser's Submission -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h3 class="h5 mb-0">Loser: {{ result.loser.user.username }}</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if result.loser.generated_image %}
+                                <div class="submission-image-container mb-3">
+                                    <img src="{{ result.loser.generated_image.url }}" 
+                                         class="submission-image" 
+                                         alt="Loser's submission"
+                                         data-bs-toggle="modal"
+                                         data-bs-target="#imageModal"
+                                         onclick="showImage('{{ result.loser.generated_image.url }}', '{{ result.loser.prompt|escapejs }}')">
+                                </div>
+                            {% endif %}
+                            <p><strong>Prompt:</strong> {{ result.loser.prompt }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Judge's Feedback -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Judge's Feedback</h3>
+                </div>
+                <div class="card-body">
+                    <p class="lead">{{ result.judge_feedback }}</p>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{% url 'challenge_list' %}" class="btn btn-primary">Back to Challenges</a>
+                <a href="{% url 'gallery' %}" class="btn btn-secondary">View Gallery</a>
             </div>
         </div>
     </div>
@@ -87,29 +92,26 @@
 <style>
     .submission-image-container {
         width: 100%;
-        margin: 1rem 0;
+        aspect-ratio: 1;
         display: flex;
         justify-content: center;
         align-items: center;
         background: #f8f9fa;
-        border-radius: 8px;
         overflow: hidden;
-        min-height: 200px;
     }
 
     .submission-image {
         max-width: 100%;
-        height: auto;
+        max-height: 100%;
+        object-fit: contain;
         cursor: pointer;
         transition: transform 0.2s ease;
-        object-fit: contain;
     }
 
     .submission-image:hover {
-        transform: scale(1.02);
+        transform: scale(1.05);
     }
 
-    /* Modal styles */
     .modal-image {
         max-width: 95vw;
         max-height: 90vh;
@@ -130,7 +132,6 @@
         height: calc(100vh - 60px);
     }
 </style>
-
 {% endblock %}
 
 {% block extra_js %}

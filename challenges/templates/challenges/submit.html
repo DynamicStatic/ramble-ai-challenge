@@ -1,38 +1,33 @@
-{% extends 'challenges/base.html' %}
-
-{% block title %}Submit Your Entry - Daily AI Challenge{% endblock %}
+{% extends 'base.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Submit Your Entry</h2>
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h1 class="h3 mb-0">Submit Entry for: {{ challenge.title }}</h1>
+        </div>
+        <div class="card-body">
+            <p class="lead">{{ challenge.description }}</p>
+            <p class="text-muted">
+                Type: {{ challenge.get_type_display }}<br>
+                Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}
+            </p>
+            
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="prompt" class="form-label">Your Prompt</label>
+                    <textarea class="form-control" id="prompt" name="prompt" rows="3" required 
+                              placeholder="Enter your image generation prompt here..."></textarea>
+                    <div class="form-text">
+                        Write a detailed prompt that describes the image you want to generate. 
+                        Be specific and creative!
+                    </div>
+                </div>
                 
-                {% if challenge %}
-                    <div class="mb-4">
-                        <h4>Today's Challenge:</h4>
-                        <p class="lead">{{ challenge.description }}</p>
-                    </div>
-
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="prompt" class="form-label">Your Prompt</label>
-                            <textarea class="form-control" id="prompt" name="prompt" rows="4" required
-                                    placeholder="Describe what you want to generate..."></textarea>
-                            <div class="form-text">
-                                Be creative and specific with your prompt to get the best results!
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Generate Image</button>
-                    </form>
-                {% else %}
-                    <div class="alert alert-warning">
-                        No active challenge at the moment. Please check back later!
-                    </div>
-                {% endif %}
-            </div>
+                <button type="submit" class="btn btn-primary">Generate & Submit</button>
+                <a href="{% url 'challenge_detail' challenge.id %}" class="btn btn-secondary">Cancel</a>
+            </form>
         </div>
     </div>
 </div>

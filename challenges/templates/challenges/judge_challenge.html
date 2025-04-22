@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h1 class="h3 mb-0">Judge Challenge: {{ challenge.title }}</h1>
+        </div>
+        <div class="card-body">
+            <p class="lead">{{ challenge.description }}</p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Submissions to Judge</h2>
+        </div>
+        <div class="card-body">
+            {% if submissions %}
+                <div class="row">
+                    {% for submission in submissions %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                {% if submission.image %}
+                                    <img src="{{ submission.image.url }}" class="card-img-top" alt="Submission image">
+                                {% endif %}
+                                <div class="card-body">
+                                    <h5 class="card-title">By {{ submission.user.username }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">Submitted: {{ submission.created_at|date:"F j, Y" }}</small>
+                                    </p>
+                                    
+                                    <form method="post" class="mt-3">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                                        
+                                        <div class="mb-3">
+                                            <label for="score-{{ submission.id }}" class="form-label">Score (0-100)</label>
+                                            <input type="number" class="form-control" id="score-{{ submission.id }}" 
+                                                   name="score" min="0" max="100" value="{{ submission.score|default:'' }}" required>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="feedback-{{ submission.id }}" class="form-label">Feedback</label>
+                                            <textarea class="form-control" id="feedback-{{ submission.id }}" 
+                                                      name="feedback" rows="3">{{ submission.feedback|default:'' }}</textarea>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary">Submit Judgment</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>No submissions to judge yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

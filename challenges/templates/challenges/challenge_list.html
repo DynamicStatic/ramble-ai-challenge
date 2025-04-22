@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Challenges</h1>
+    
+    {% if user.is_staff %}
+    <div class="mb-4">
+        <a href="{% url 'create_challenge' %}" class="btn btn-primary">Create Daily Challenge</a>
+        <a href="{% url 'generate_random_challenge' %}" class="btn btn-secondary">Generate Random Challenge</a>
+    </div>
+    {% endif %}
+    
+    <!-- Daily Challenge Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Daily Challenge</h2>
+        </div>
+        <div class="card-body">
+            {% if daily_challenge %}
+                <h3>{{ daily_challenge.title }}</h3>
+                <p>{{ daily_challenge.description }}</p>
+                <p class="text-muted">Ends: {{ daily_challenge.end_date|date:"F j, Y, g:i a" }}</p>
+                <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
+            {% else %}
+                <p>No daily challenge available at the moment.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Random Challenges Section -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Random Challenges</h2>
+        </div>
+        <div class="card-body">
+            {% if random_challenges %}
+                {% for challenge in random_challenges %}
+                    <div class="mb-4">
+                        <h3>{{ challenge.title }}</h3>
+                        <p>{{ challenge.description }}</p>
+                        <p class="text-muted">Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}</p>
+                        <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                {% endfor %}
+            {% else %}
+                <p>No random challenges available at the moment.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

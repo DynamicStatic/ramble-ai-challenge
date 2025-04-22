@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h1 class="h3 mb-0">{{ challenge.title }}</h1>
+        </div>
+        <div class="card-body">
+            <p class="lead">{{ challenge.description }}</p>
+            <p class="text-muted">
+                Type: {{ challenge.get_type_display }}<br>
+                Created: {{ challenge.created_at|date:"F j, Y, g:i a" }}<br>
+                Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}
+            </p>
+            
+            <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit Entry</a>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Submissions</h2>
+        </div>
+        <div class="card-body">
+            {% if submissions %}
+                <div class="row">
+                    {% for submission in submissions %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                {% if submission.image %}
+                                    <img src="{{ submission.image.url }}" class="card-img-top" alt="Submission image">
+                                {% endif %}
+                                <div class="card-body">
+                                    <h5 class="card-title">By {{ submission.user.username }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">Submitted: {{ submission.created_at|date:"F j, Y" }}</small>
+                                    </p>
+                                    {% if user.is_staff or user == submission.user %}
+                                        <a href="{% url 'delete_submission' submission.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this submission?')">Delete</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>No submissions yet. Be the first to submit!</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,84 +1,112 @@
-{% extends 'challenges/base.html' %}
-
-{% block title %}Home - Daily AI Challenge{% endblock %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="container mt-4">
-    <!-- Active Challenge -->
-    {% if challenge %}
-    <div class="row mb-4">
-        <div class="col-md-8 offset-md-2">
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="card-title">Today's Challenge</h2>
-                    <p class="card-text">{{ challenge.description }}</p>
-                    <a href="{% url 'submit_challenge' %}" class="btn btn-primary">Submit Your Entry</a>
-                </div>
-            </div>
+    <h1 class="mb-4">Welcome to Ramble AI Challenge</h1>
+    
+    <!-- Daily Challenge Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Daily Challenge</h2>
+        </div>
+        <div class="card-body">
+            {% if daily_challenge %}
+                <h3>{{ daily_challenge.title }}</h3>
+                <p>{{ daily_challenge.description }}</p>
+                <p class="text-muted">Ends: {{ daily_challenge.end_date|date:"F j, Y, g:i a" }}</p>
+                <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                <a href="{% url 'challenge_detail' daily_challenge.id %}" class="btn btn-secondary">View Details</a>
+            {% else %}
+                <p>No daily challenge available at the moment.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
-
-    <!-- Recent Submissions -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">Recent Submissions</h3>
-                    <div class="row g-4">
-                        {% for submission in submissions %}
-                        <div class="col-md-4 col-lg-3">
+    
+    <!-- Random Challenges Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Random Challenges</h2>
+        </div>
+        <div class="card-body">
+            {% if random_challenges %}
+                {% for challenge in random_challenges %}
+                    <div class="mb-4">
+                        <h3>{{ challenge.title }}</h3>
+                        <p>{{ challenge.description }}</p>
+                        <p class="text-muted">Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}</p>
+                        <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                        <a href="{% url 'challenge_detail' challenge.id %}" class="btn btn-secondary">View Details</a>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                {% endfor %}
+            {% else %}
+                <p>No random challenges available at the moment.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Submissions Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Recent Submissions</h2>
+        </div>
+        <div class="card-body">
+            {% if submissions %}
+                <div class="row">
+                    {% for submission in submissions %}
+                        <div class="col-md-4 mb-4">
                             <div class="card h-100">
-                                <div class="submission-image-container">
-                                    <img src="{{ submission.generated_image.url }}" 
-                                         class="submission-image" 
-                                         alt="Submission #{{ submission.submission_number }}"
-                                         data-bs-toggle="modal"
-                                         data-bs-target="#imageModal"
-                                         onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
-                                </div>
+                                {% if submission.generated_image %}
+                                    <div class="submission-image-container">
+                                        <img src="{{ submission.generated_image.url }}" 
+                                             class="submission-image" 
+                                             alt="Submission image"
+                                             data-bs-toggle="modal"
+                                             data-bs-target="#imageModal"
+                                             onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
+                                    </div>
+                                {% endif %}
                                 <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">
-                                        {{ submission.user.username }}'s Submission #{{ submission.submission_number }}
-                                    </h6>
-                                    <p class="card-text small text-muted">{{ submission.prompt|truncatechars:100 }}</p>
+                                    <h5 class="card-title">By {{ submission.user.username }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">Submitted: {{ submission.created_at|date:"F j, Y" }}</small>
+                                    </p>
+                                    <p class="card-text">{{ submission.prompt|truncatechars:100 }}</p>
                                     {% if user.is_authenticated and user != submission.user %}
-                                        <form method="post" action="{% url 'challenge_user' submission.id %}" class="mt-2">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-warning btn-sm w-100">Challenge This Entry</button>
-                                        </form>
+                                        <a href="{% url 'challenge_user' submission.id %}" class="btn btn-warning btn-sm">Challenge This Entry</a>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <p class="text-center text-muted">No submissions yet.</p>
-                        </div>
-                        {% endfor %}
-                    </div>
+                    {% endfor %}
                 </div>
-            </div>
+            {% else %}
+                <p>No submissions yet. Be the first to submit!</p>
+            {% endif %}
         </div>
     </div>
-
-    <!-- Prior Challenges -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">Prior Challenges</h3>
-                    <div class="list-group">
-                        {% for challenge in prior_challenges %}
-                        <a href="{% url 'view_challenge' challenge.id %}" class="list-group-item list-group-item-action">
-                            {{ challenge.date|date:"F j, Y" }} - {{ challenge.description }}
+    
+    <!-- Completed Challenges Section -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="h4 mb-0">Completed Challenges</h2>
+        </div>
+        <div class="card-body">
+            {% if completed_challenges %}
+                <div class="list-group">
+                    {% for challenge in completed_challenges %}
+                        <a href="{% url 'challenge_detail' challenge.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ challenge.title }}</h5>
+                                <small class="text-muted">Ended: {{ challenge.end_date|date:"F j, Y" }}</small>
+                            </div>
+                            <p class="mb-1">{{ challenge.description|truncatechars:100 }}</p>
                         </a>
-                        {% empty %}
-                        <p class="text-center text-muted">No prior challenges.</p>
-                        {% endfor %}
-                    </div>
+                    {% endfor %}
                 </div>
-            </div>
+            {% else %}
+                <p>No completed challenges yet.</p>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -141,7 +169,6 @@
         height: calc(100vh - 60px);
     }
 </style>
-
 {% endblock %}
 
 {% block extra_js %}

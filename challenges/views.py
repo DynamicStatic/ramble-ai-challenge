@@ -4,18 +4,19 @@ from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
-from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile
+from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile, Challenge
 import os
 from django.conf import settings
 import requests
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from .forms import UserProfileForm
+from .forms import UserProfileForm, ChallengeForm
 from django.db.models import Count
 import base64
 from io import BytesIO
 from PIL import Image
 import json
+from django.contrib.auth.models import User
 
 # Initialize BLIP model and processor only when needed
 processor = None
@@ -75,39 +76,54 @@ def register(request):
     return render(request, 'challenges/register.html', {'form': form})
 
 def home(request):
-    # Get active challenge
-    challenge = DailyChallenge.objects.filter(is_active=True).first()
+    # Get active challenges
+    active_challenges = Challenge.objects.filter(
+        is_active=True,
+        end_date__gt=timezone.now()
+    ).order_by('-created_at')
     
-    # Get submissions
+    # Get daily challenge
+    daily_challenge = active_challenges.filter(type='daily').first()
+    
+    # Get random challenges
+    random_challenges = active_challenges.filter(type='random')
+    
+    # Get recent submissions
     submissions = UserSubmission.objects.select_related('user', 'challenge').order_by('-created_at')[:10]
     
-    # Get prior challenges
-    prior_challenges = DailyChallenge.objects.filter(is_active=False).order_by('-date')[:10]
+    # Get completed challenges
+    completed_challenges = Challenge.objects.filter(
+        end_date__lt=timezone.now()
+    ).order_by('-end_date')[:10]
     
     context = {
-        'challenge': challenge,
+        'daily_challenge': daily_challenge,
+        'random_challenges': random_challenges,
         'submissions': submissions,
-        'prior_challenges': prior_challenges,
+        'completed_challenges': completed_challenges,
     }
     return render(request, 'challenges/home.html', context)
 
 @login_required
-def submit_challenge(request):
-    today = timezone.now().date()
-    current_challenge = DailyChallenge.objects.filter(date=today, is_active=True).first()
+def submit_challenge(request, challenge_id):
+    challenge = get_object_or_404(Challenge, id=challenge_id)
+    
+    if not challenge.is_active or challenge.end_date < timezone.now():
+        messages.error(request, 'This challenge is no longer active.')
+        return redirect('challenge_list')
     
     if request.method == 'POST':
         prompt = request.POST.get('prompt')
         if not prompt:
             messages.error(request, 'Please provide a prompt')
-            return redirect('submit_challenge')
+            return redirect('submit_challenge', challenge_id=challenge_id)
         
         try:
             print(f"Starting image generation for prompt: {prompt}")
             # Get the next submission number for this user and challenge
             last_submission = UserSubmission.objects.filter(
                 user=request.user,
-                challenge=current_challenge
+                challenge=challenge
             ).order_by('-submission_number').first()
             
             next_submission_number = (last_submission.submission_number + 1) if last_submission else 1
@@ -157,7 +173,7 @@ def submit_challenge(request):
             # Create submission with the local image path
             submission = UserSubmission.objects.create(
                 user=request.user,
-                challenge=current_challenge,
+                challenge=challenge,
                 prompt=prompt,
                 generated_image=image_path,
                 submission_number=next_submission_number
@@ -165,7 +181,10 @@ def submit_challenge(request):
             print(f"Submission created successfully with ID: {submission.id}")
             
             messages.success(request, 'Your submission has been created!')
-            return redirect('home')
+            return render(request, 'challenges/submit_result.html', {
+                'submission': submission,
+                'challenge': challenge
+            })
             
         except Exception as e:
             print(f"Error in submit_challenge: {str(e)}")
@@ -173,84 +192,53 @@ def submit_challenge(request):
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
             messages.error(request, f'Error generating image: {str(e)}')
-            return redirect('submit_challenge')
+            return redirect('submit_challenge', challenge_id=challenge_id)
     
-    return render(request, 'challenges/submit.html', {'challenge': current_challenge})
+    return render(request, 'challenges/submit.html', {'challenge': challenge})
 
 @login_required
 def challenge_user(request, submission_id):
-    print(f"Starting challenge_user view for submission_id: {submission_id}")
     submission = get_object_or_404(UserSubmission, id=submission_id)
     
     # Get all submissions by the current user for this challenge
     user_submissions = UserSubmission.objects.filter(
         user=request.user,
         challenge=submission.challenge
-    ).order_by('-submission_number')
+    ).order_by('-created_at')
     
     if not user_submissions.exists():
         messages.error(request, 'You need to submit an image first')
-        return redirect('submit_challenge')
-    
-    # Check if user has already challenged this specific submission with the same submission
-    if ChallengeResult.objects.filter(
-        challenge=submission.challenge,
-        winner=submission,
-        loser__user=request.user
-    ).exists():
-        messages.error(request, "You have already challenged this submission!")
-        return redirect('home')
+        return redirect('submit_challenge', challenge_id=submission.challenge.id)
     
     if request.method == 'POST':
-        print("Received POST request")
         # Get the selected user submission
         user_submission_id = request.POST.get('user_submission')
-        print(f"Selected user_submission_id: {user_submission_id}")
-        
         if not user_submission_id:
             messages.error(request, 'Please select your submission')
             return redirect('challenge_user', submission_id=submission_id)
             
         user_submission = get_object_or_404(UserSubmission, id=user_submission_id, user=request.user)
-        print(f"Found user submission: {user_submission.id}")
+        
+        # Use AI to judge the submissions
+        judge_prompt = f"""
+        You are an art critic judging two AI-generated images for a challenge. The challenge is: "{submission.challenge.description}"
+
+        Compare these two submissions and decide which one better meets the challenge criteria.
+        You MUST choose a winner - there cannot be a tie or no winner.
+        Keep your response brief and to the point - just 2-3 sentences explaining which submission wins and why.
+        Your response MUST end with either "Submission 1 wins" or "Submission 2 wins" on a new line.
+
+        Submission 1 (Your Submission):
+        Prompt: {user_submission.prompt}
+        Image: {user_submission.generated_image.url}
+
+        Submission 2 (Opponent's Submission):
+        Prompt: {submission.prompt}
+        Image: {submission.generated_image.url}
+        """
         
         try:
-            print("Generating image captions...")
-            user_image_caption = generate_image_caption(user_submission.generated_image.path)
-            opponent_image_caption = generate_image_caption(submission.generated_image.path)
-            
-            print(f"User image caption: {user_image_caption}")
-            print(f"Opponent image caption: {opponent_image_caption}")
-            
-            # Use AI to judge the submissions
-            judge_prompt = f"""
-            You are an expert art critic judging AI-generated images for a daily challenge. Today's challenge is:
-            "{submission.challenge.description}"
-
-            Compare these two submissions:
-
-            Submission 1 (Your Submission):
-            Prompt: {user_submission.prompt}
-            Image Description: {user_image_caption}
-
-            Submission 2 (Opponent's Submission):
-            Prompt: {submission.prompt}
-            Image Description: {opponent_image_caption}
-
-            Evaluate each submission based on:
-            1. How well the prompt aligns with the challenge requirements
-            2. How effectively the generated image fulfills the prompt's intent
-            3. Overall creativity and originality
-            4. Technical execution and quality
-            5. Visual appeal and composition
-            6. Adherence to the challenge theme
-
-            Provide a detailed analysis explaining which submission better meets the challenge criteria and why.
-            Be specific about the strengths and weaknesses of each submission in relation to the challenge.
-            At the end of your analysis, clearly state which submission wins and why.
-            """
-            
-            print("Making API call to OpenAI...")
+            # Make API call to OpenAI for judging
             headers = {
                 "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
                 "Content-Type": "application/json"
@@ -264,7 +252,7 @@ def challenge_user(request, submission_id):
                         "content": judge_prompt
                     }
                 ],
-                "max_tokens": 1000
+                "max_tokens": 200  # Reduced token limit for shorter response
             }
             
             response = requests.post(
@@ -273,41 +261,52 @@ def challenge_user(request, submission_id):
                 json=data
             )
             response.raise_for_status()
-            print("API call successful")
             
             judge_feedback = response.json()['choices'][0]['message']['content']
-            print(f"Judge feedback: {judge_feedback[:100]}...")  # Print first 100 chars
             
             # Parse the judge's feedback to determine winner
-            judge_feedback_lower = judge_feedback.lower()
-            print(f"Judge feedback: {judge_feedback}")  # Print full feedback for debugging
+            feedback_lines = judge_feedback.lower().split('\n')
+            winner_line = None
             
-            # Look for explicit winner declaration
-            if "submission 1 wins" in judge_feedback_lower:
-                winner_submission = user_submission
-                loser_submission = submission
-                print("Winner: Submission 1 (User's submission)")
-            elif "submission 2 wins" in judge_feedback_lower:
-                winner_submission = submission
-                loser_submission = user_submission
-                print("Winner: Submission 2 (Opponent's submission)")
-            else:
-                # Try to find the winner from the last sentence
-                sentences = judge_feedback.split('.')
-                last_sentence = sentences[-1].lower()
-                if "submission 1" in last_sentence and "wins" in last_sentence:
+            # Look for the winner declaration in the last few lines
+            for line in feedback_lines[-3:]:
+                if "submission 1 wins" in line:
                     winner_submission = user_submission
                     loser_submission = submission
-                    print("Winner: Submission 1 (User's submission) - from last sentence")
-                elif "submission 2" in last_sentence and "wins" in last_sentence:
+                    winner_line = line
+                    break
+                elif "submission 2 wins" in line:
                     winner_submission = submission
                     loser_submission = user_submission
-                    print("Winner: Submission 2 (Opponent's submission) - from last sentence")
-                else:
-                    # If we still can't determine the winner, default to the challenger
+                    winner_line = line
+                    break
+            
+            # If no winner line found, try to find it anywhere in the feedback
+            if not winner_line:
+                if "submission 1 wins" in judge_feedback.lower():
                     winner_submission = user_submission
                     loser_submission = submission
-                    print("Warning: Could not determine winner from judge feedback, defaulting to challenger")
+                elif "submission 2 wins" in judge_feedback.lower():
+                    winner_submission = submission
+                    loser_submission = user_submission
+                else:
+                    # If still no winner found, make a decision based on the feedback
+                    if "submission 1" in judge_feedback.lower() and "submission 2" in judge_feedback.lower():
+                        # If both submissions are mentioned, choose the one mentioned first
+                        if judge_feedback.lower().find("submission 1") < judge_feedback.lower().find("submission 2"):
+                            winner_submission = user_submission
+                            loser_submission = submission
+                        else:
+                            winner_submission = submission
+                            loser_submission = user_submission
+                    else:
+                        # If only one submission is mentioned, it's the winner
+                        if "submission 1" in judge_feedback.lower():
+                            winner_submission = user_submission
+                            loser_submission = submission
+                        else:
+                            winner_submission = submission
+                            loser_submission = user_submission
 
             # Create challenge result
             challenge_result = ChallengeResult.objects.create(
@@ -316,7 +315,6 @@ def challenge_user(request, submission_id):
                 loser=loser_submission,
                 judge_feedback=judge_feedback
             )
-            print(f"Created challenge result: {challenge_result.id}")
             
             # Update user profiles
             winner_profile, _ = UserProfile.objects.get_or_create(user=winner_submission.user)
@@ -333,10 +331,6 @@ def challenge_user(request, submission_id):
             return redirect('challenge_result', result_id=challenge_result.id)
             
         except Exception as e:
-            print(f"Error in challenge_user: {str(e)}")
-            print(f"Error type: {type(e)}")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
             messages.error(request, f'Error judging submissions: {str(e)}')
             return redirect('challenge_user', submission_id=submission_id)
     
@@ -348,28 +342,37 @@ def challenge_user(request, submission_id):
     return render(request, 'challenges/challenge.html', context)
 
 def leaderboard(request):
-    profiles = UserProfile.objects.all().order_by('-points')
+    # Get all profiles ordered by points, then wins, then losses
+    profiles = UserProfile.objects.select_related('user').order_by('-points', '-wins', 'losses')
     return render(request, 'challenges/leaderboard.html', {'profiles': profiles})
 
 @login_required
-def profile(request):
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
-    submissions = UserSubmission.objects.filter(user=request.user)
+def profile(request, username=None):
+    if username:
+        user = get_object_or_404(User, username=username)
+        profile = get_object_or_404(UserProfile, user=user)
+    else:
+        profile = get_object_or_404(UserProfile, user=request.user)
     
-    if request.method == 'POST':
+    submissions = UserSubmission.objects.filter(user=profile.user).order_by('-created_at')
+    
+    # Handle profile editing
+    if request.method == 'POST' and request.user == profile.user:
         form = UserProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
             messages.success(request, 'Your profile has been updated!')
-            return redirect('profile')
+            return redirect('my_profile')
     else:
-        form = UserProfileForm(instance=profile)
+        form = UserProfileForm(instance=profile) if request.user == profile.user else None
     
-    return render(request, 'challenges/profile.html', {
+    context = {
         'profile': profile,
         'submissions': submissions,
+        'is_own_profile': request.user == profile.user,
         'form': form
-    })
+    }
+    return render(request, 'challenges/profile.html', context)
 
 @login_required
 def delete_submission(request, submission_id):
@@ -420,7 +423,119 @@ def view_challenge(request, challenge_id):
     }
     return render(request, 'challenges/view_challenge.html', context)
 
+@login_required
 def gallery(request):
-    # Get all submissions ordered by date
-    submissions = UserSubmission.objects.all().order_by('-created_at')
+    submissions = UserSubmission.objects.select_related('user', 'challenge').order_by('-created_at')
     return render(request, 'challenges/gallery.html', {'submissions': submissions})
+
+@login_required
+def challenge_list(request):
+    # Get active challenges
+    active_challenges = Challenge.objects.filter(
+        is_active=True,
+        end_date__gt=timezone.now()
+    ).order_by('-created_at')
+    
+    # Get daily challenge
+    daily_challenge = active_challenges.filter(type='daily').first()
+    
+    # Get random challenges
+    random_challenges = active_challenges.filter(type='random')
+    
+    # If no random challenges exist, generate one
+    if not random_challenges.exists():
+        Challenge.generate_random_challenge()
+        random_challenges = active_challenges.filter(type='random')
+    
+    context = {
+        'daily_challenge': daily_challenge,
+        'random_challenges': random_challenges,
+    }
+    return render(request, 'challenges/challenge_list.html', context)
+
+@login_required
+def create_challenge(request):
+    if not request.user.is_staff:
+        return redirect('challenge_list')
+        
+    if request.method == 'POST':
+        form = ChallengeForm(request.POST)
+        if form.is_valid():
+            challenge = form.save(commit=False)
+            challenge.type = 'daily'  # Admin-created challenges are always daily
+            challenge.save()
+            return redirect('challenge_list')
+    else:
+        form = ChallengeForm()
+    
+    return render(request, 'challenges/create_challenge.html', {'form': form})
+
+@login_required
+def generate_random_challenge(request):
+    if not request.user.is_staff:
+        return redirect('challenge_list')
+        
+    challenge = Challenge.generate_random_challenge()
+    if challenge:
+        messages.success(request, 'Random challenge generated successfully!')
+    else:
+        messages.error(request, 'Failed to generate random challenge.')
+    
+    return redirect('challenge_list')
+
+@login_required
+def edit_profile(request):
+    try:
+        profile = request.user.userprofile
+    except UserProfile.DoesNotExist:
+        profile = UserProfile.objects.create(user=request.user)
+    
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Your profile has been updated!')
+            return redirect('profile')
+    else:
+        form = UserProfileForm(instance=profile)
+    
+    return render(request, 'challenges/edit_profile.html', {'form': form})
+
+@login_required
+def challenge_detail(request, challenge_id):
+    challenge = get_object_or_404(Challenge, pk=challenge_id)
+    submissions = UserSubmission.objects.filter(challenge=challenge).order_by('-created_at')
+    
+    context = {
+        'challenge': challenge,
+        'submissions': submissions,
+    }
+    return render(request, 'challenges/challenge_detail.html', context)
+
+@login_required
+def judge_challenge(request, challenge_id):
+    if not request.user.is_staff:
+        messages.error(request, "You don't have permission to judge challenges.")
+        return redirect('challenge_list')
+    
+    challenge = get_object_or_404(Challenge, pk=challenge_id)
+    submissions = UserSubmission.objects.filter(challenge=challenge).order_by('-created_at')
+    
+    if request.method == 'POST':
+        submission_id = request.POST.get('submission_id')
+        score = request.POST.get('score')
+        feedback = request.POST.get('feedback')
+        
+        if submission_id and score:
+            submission = get_object_or_404(UserSubmission, pk=submission_id)
+            submission.score = int(score)
+            submission.feedback = feedback
+            submission.save()
+            messages.success(request, 'Submission judged successfully!')
+            return redirect('challenge_detail', challenge_id=challenge_id)
+    
+    context = {
+        'challenge': challenge,
+        'submissions': submissions,
+    }
+    return render(request, 'challenges/judge_challenge.html', context)

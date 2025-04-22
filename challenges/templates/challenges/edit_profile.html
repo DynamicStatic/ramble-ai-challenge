@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Edit Profile</h1>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="{{ form.bio.id_for_label }}" class="form-label">Bio</label>
+                    {{ form.bio }}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.profile_picture.id_for_label }}" class="form-label">Profile Picture</label>
+                    {{ form.profile_picture }}
+                    {% if user.userprofile.profile_picture %}
+                        <p class="mt-2">Current picture: {{ user.userprofile.profile_picture.name }}</p>
+                    {% endif %}
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a href="{% url 'profile' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 
