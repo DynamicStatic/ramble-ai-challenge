@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
-from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile, Challenge
+from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile, Challenge, Like, Comment
 import os
 from django.conf import settings
 import requests
@@ -17,6 +17,7 @@ from io import BytesIO
 from PIL import Image
 import json
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 
 # Initialize BLIP model and processor only when needed
 processor = None
@@ -425,7 +426,7 @@ def view_challenge(request, challenge_id):
 
 @login_required
 def gallery(request):
-    submissions = UserSubmission.objects.select_related('user', 'challenge').order_by('-created_at')
+    submissions = UserSubmission.objects.select_related('user', 'challenge').prefetch_related('likes').order_by('-created_at')
     return render(request, 'challenges/gallery.html', {'submissions': submissions})
 
 @login_required
@@ -539,3 +540,54 @@ def judge_challenge(request, challenge_id):
         'submissions': submissions,
     }
     return render(request, 'challenges/judge_challenge.html', context)
+
+@login_required
+def like_submission(request, submission_id):
+    print(f"Like submission called for submission {submission_id}")
+    submission = get_object_or_404(UserSubmission, id=submission_id)
+    like, created = Like.objects.get_or_create(user=request.user, submission=submission)
+    
+    if not created:
+        like.delete()
+        print(f"Unliked submission {submission_id}")
+        return JsonResponse({'status': 'unliked', 'likes_count': submission.likes.count()})
+    
+    print(f"Liked submission {submission_id}")
+    return JsonResponse({'status': 'liked', 'likes_count': submission.likes.count()})
+
+@login_required
+def add_comment(request, submission_id):
+    if request.method == 'POST':
+        submission = get_object_or_404(UserSubmission, id=submission_id)
+        text = request.POST.get('text')
+        
+        if text:
+            comment = Comment.objects.create(
+                user=request.user,
+                submission=submission,
+                text=text
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'comment': {
+                    'text': comment.text,
+                    'user': comment.user.username,
+                    'created_at': comment.created_at.strftime('%B %d, %Y at %I:%M %p')
+                }
+            })
+    
+    return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+def get_comments(request, submission_id):
+    submission = get_object_or_404(UserSubmission, id=submission_id)
+    comments = submission.comments.all()
+    
+    comments_data = [{
+        'user': comment.user.username,
+        'text': comment.text,
+        'created_at': comment.created_at.strftime('%B %d, %Y at %I:%M %p')
+    } for comment in comments]
+    
+    return JsonResponse({'comments': comments_data})

@@ -20,6 +20,19 @@
                              data-prompt="{{ submission.prompt|escapejs }}"
                              data-submission-id="{{ submission.id }}">
                     {% endif %}
+                    <div class="gallery-item-overlay">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-light">{{ submission.user.username }}</span>
+                            {% if user.is_authenticated and user != submission.user %}
+                                <button class="btn btn-sm btn-like {% if user in submission.likes.all %}btn-liked{% endif %}"
+                                        data-submission-id="{{ submission.id }}"
+                                        onclick="toggleLike(this)">
+                                    <i class="fas fa-heart"></i>
+                                    <span class="likes-count">{{ submission.likes.count }}</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         {% empty %}
@@ -47,6 +60,30 @@
                     <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
+            <div class="modal-footer border-0">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="comments-section">
+                                <h6 class="text-light mb-3">Comments</h6>
+                                <div id="commentsList" class="comments-list mb-3">
+                                    <!-- Comments will be loaded here -->
+                                </div>
+                                {% if user.is_authenticated %}
+                                    <form id="commentForm" class="comment-form">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="commentText" placeholder="Add a comment...">
+                                            <button class="btn btn-primary" type="submit">Post</button>
+                                        </div>
+                                    </form>
+                                {% else %}
+                                    <p class="text-light">Please <a href="{% url 'login' %}" class="text-light">log in</a> to comment.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -70,6 +107,53 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+    }
+
+    .gallery-item-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .gallery-item:hover .gallery-item-overlay {
+        opacity: 1;
+    }
+
+    .btn-like {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        transition: all 0.2s ease;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 1.1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-like:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .btn-liked {
+        background: rgba(255, 0, 0, 0.2);
+        color: #ff4444;
+    }
+
+    .btn-liked:hover {
+        background: rgba(255, 0, 0, 0.3);
+    }
+
+    .likes-count {
+        margin-left: 5px;
+        font-size: 1rem;
+        font-weight: bold;
     }
 
     .modal-image {
@@ -100,6 +184,69 @@
     #prevImage:hover, #nextImage:hover {
         opacity: 1;
     }
+
+    .comments-section {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .comments-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .comment {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .comment-user {
+        font-weight: bold;
+        color: var(--light-color);
+    }
+
+    .comment-date {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .comment-text {
+        color: var(--light-color);
+    }
+
+    .comment-form {
+        margin-top: 1rem;
+    }
+
+    .comment-form .form-control {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: var(--light-color);
+    }
+
+    .comment-form .form-control:focus {
+        background: rgba(255, 255, 255, 0.15);
+        color: var(--light-color);
+    }
+
+    .comment-form .btn {
+        background: var(--primary-color);
+        border: none;
+    }
+
+    .comment-form .btn:hover {
+        background: var(--secondary-color);
+    }
 </style>
 {% endblock %}
 
@@ -107,12 +254,15 @@
 <script>
 let currentImageIndex = 0;
 let images = [];
+let currentSubmissionId = null;
 
 function showImage(index) {
     const image = images[index];
     document.getElementById('modalImage').src = image.url;
     document.getElementById('modalPrompt').textContent = image.prompt;
     currentImageIndex = index;
+    currentSubmissionId = image.id;
+    loadComments(currentSubmissionId);
 }
 
 function showNextImage() {
@@ -125,6 +275,93 @@ function showPrevImage() {
     if (currentImageIndex > 0) {
         showImage(currentImageIndex - 1);
     }
+}
+
+function toggleLike(button) {
+    const submissionId = button.dataset.submissionId;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch(`/challenges/submission/${submissionId}/like/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        button.classList.toggle('btn-liked');
+        button.querySelector('.likes-count').textContent = data.likes_count;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function loadComments(submissionId) {
+    const commentsList = document.getElementById('commentsList');
+    commentsList.innerHTML = '<div class="text-center text-light">Loading comments...</div>';
+    
+    fetch(`/challenges/submission/${submissionId}/comments/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.comments.length === 0) {
+                commentsList.innerHTML = '<div class="text-center text-light">No comments yet. Be the first to comment!</div>';
+                return;
+            }
+            
+            commentsList.innerHTML = data.comments.map(comment => `
+                <div class="comment">
+                    <div class="comment-header">
+                        <span class="comment-user">${comment.user}</span>
+                        <span class="comment-date">${comment.created_at}</span>
+                    </div>
+                    <div class="comment-text">${comment.text}</div>
+                </div>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            commentsList.innerHTML = '<div class="text-center text-light">Error loading comments</div>';
+        });
+}
+
+function addComment(event) {
+    event.preventDefault();
+    const commentText = document.getElementById('commentText').value.trim();
+    if (!commentText) return;
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('text', commentText);
+
+    fetch(`/challenges/submission/${currentSubmissionId}/comment/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const commentsList = document.getElementById('commentsList');
+            const commentHtml = `
+                <div class="comment">
+                    <div class="comment-header">
+                        <span class="comment-user">${data.comment.user}</span>
+                        <span class="comment-date">${data.comment.created_at}</span>
+                    </div>
+                    <div class="comment-text">${data.comment.text}</div>
+                </div>
+            `;
+            commentsList.insertAdjacentHTML('afterbegin', commentHtml);
+            document.getElementById('commentText').value = '';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
 }
 
 // Initialize images array when page loads
@@ -153,6 +390,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Add comment form handler
+    document.getElementById('commentForm').addEventListener('submit', addComment);
 });
 
 // Update click handler for gallery images

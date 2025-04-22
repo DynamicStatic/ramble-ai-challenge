@@ -17,4 +17,7 @@ urlpatterns = [
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('leaderboard/', views.leaderboard, name='leaderboard'),
     path('delete/<int:submission_id>/', views.delete_submission, name='delete_submission'),
+    path('submission/<int:submission_id>/like/', views.like_submission, name='like_submission'),
+    path('submission/<int:submission_id>/comment/', views.add_comment, name='add_comment'),
+    path('submission/<int:submission_id>/comments/', views.get_comments, name='get_comments'),
 ] 
