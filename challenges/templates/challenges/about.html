@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}About Ramble{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="h3 mb-0">About Ramble</h1>
+                </div>
+                <div class="card-body">
+                    <h2 class="h4 mb-3">How It Works</h2>
+                    <div class="mb-4">
+                        <h3 class="h5">1. Daily Challenges</h3>
+                        <p>Each day, a new challenge is posted with a unique theme or prompt. You can submit your AI-generated image based on the challenge theme.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="h5">2. Creating Images</h3>
+                        <p>Use your creativity to write a prompt that will generate an image matching the challenge theme. The more detailed and creative your prompt, the better your results!</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="h5">3. Community Interaction</h3>
+                        <p>Engage with the community by:</p>
+                        <ul>
+                            <li>Liking other users' submissions</li>
+                            <li>Leaving comments on images</li>
+                            <li>Challenging other users' submissions</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="h5">4. Challenges and Judging</h3>
+                        <p>When you challenge another user's submission:</p>
+                        <ul>
+                            <li>Select one of your own submissions</li>
+                            <li>An AI judge will compare both images</li>
+                            <li>The winner earns points and improves their standing</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="h5">5. Leaderboard</h3>
+                        <p>Compete with other users on the leaderboard. Points are earned through:</p>
+                        <ul>
+                            <li>Winning challenges</li>
+                            <li>Getting likes on your submissions</li>
+                            <li>Active participation</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="h5">Tips for Success</h3>
+                        <ul>
+                            <li>Be creative with your prompts</li>
+                            <li>Engage with the community</li>
+                            <li>Participate in daily challenges</li>
+                            <li>Challenge other users strategically</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h4 class="h5">Ready to Start?</h4>
+                        <p class="mb-0">Join the community and start creating amazing AI-generated art today!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        background: var(--primary-color);
+        color: var(--light-color);
+        border-bottom: none;
+    }
+
+    .card-body {
+        color: var(--dark-color);
+    }
+
+    .h5 {
+        color: var(--primary-color);
+        margin-top: 1.5rem;
+    }
+
+    ul {
+        padding-left: 1.2rem;
+    }
+
+    li {
+        margin-bottom: 0.5rem;
+    }
+
+    .alert {
+        background: rgba(26, 95, 122, 0.1);
+        border: none;
+        color: var(--dark-color);
+    }
+</style>
+{% endblock %} 

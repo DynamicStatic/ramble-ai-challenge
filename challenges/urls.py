@@ -20,4 +20,5 @@ urlpatterns = [
     path('submission/<int:submission_id>/like/', views.like_submission, name='like_submission'),
     path('submission/<int:submission_id>/comment/', views.add_comment, name='add_comment'),
     path('submission/<int:submission_id>/comments/', views.get_comments, name='get_comments'),
+    path('about/', views.about, name='about'),
 ] 

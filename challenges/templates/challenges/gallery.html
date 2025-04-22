@@ -34,6 +34,9 @@
                         </div>
                     </div>
                 </div>
+                <div class="gallery-item-caption mt-2">
+                    <p class="text-muted mb-0">{{ submission.prompt|truncatechars:100 }}</p>
+                </div>
             </div>
         {% empty %}
             <div class="col-12">
@@ -48,7 +51,6 @@
     <div class="modal-dialog modal-fullscreen">
         <div class="modal-content bg-dark">
             <div class="modal-header border-0">
-                <h5 class="modal-title text-light" id="modalPrompt"></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body d-flex align-items-center justify-content-center p-3">
@@ -64,6 +66,9 @@
                 <div class="container">
                     <div class="row">
                         <div class="col-12">
+                            <div class="prompt-section mb-3">
+                                <p class="text-light mb-0" id="modalPrompt"></p>
+                            </div>
                             <div class="comments-section">
                                 <h6 class="text-light mb-3">Comments</h6>
                                 <div id="commentsList" class="comments-list mb-3">
@@ -124,6 +129,11 @@
         opacity: 1;
     }
 
+    .gallery-item-caption {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
     .btn-like {
         background: rgba(255, 255, 255, 0.2);
         border: none;
@@ -158,8 +168,9 @@
 
     .modal-image {
         max-width: 90vw;
-        max-height: 80vh;
+        max-height: 70vh;
         object-fit: contain;
+        margin: 2rem 0;
     }
 
     .modal-content {
@@ -169,11 +180,20 @@
     .modal-header {
         padding: 1rem;
         background: rgba(0, 0, 0, 0.5);
+        height: 60px;
     }
 
     .modal-body {
         padding: 0;
-        height: calc(100vh - 60px);
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-footer {
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.5);
     }
 
     #prevImage, #nextImage {
@@ -185,8 +205,14 @@
         opacity: 1;
     }
 
+    .prompt-section {
+        background: #2c2c2c;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
     .comments-section {
-        background: rgba(255, 255, 255, 0.1);
+        background: #2c2c2c;
         border-radius: 8px;
         padding: 1rem;
         margin-top: 1rem;
@@ -198,7 +224,7 @@
     }
 
     .comment {
-        background: rgba(255, 255, 255, 0.1);
+        background: #363636;
         border-radius: 8px;
         padding: 0.8rem;
         margin-bottom: 0.8rem;
@@ -229,13 +255,13 @@
     }
 
     .comment-form .form-control {
-        background: rgba(255, 255, 255, 0.1);
+        background: #363636;
         border: none;
         color: var(--light-color);
     }
 
     .comment-form .form-control:focus {
-        background: rgba(255, 255, 255, 0.15);
+        background: #404040;
         color: var(--light-color);
     }
 

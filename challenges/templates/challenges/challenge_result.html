@@ -20,12 +20,10 @@
                         <div class="card-body">
                             {% if result.winner.generated_image %}
                                 <div class="submission-image-container mb-3">
-                                    <img src="{{ result.winner.generated_image.url }}" 
+                                    <img src="{{ winner_image_url }}" 
                                          class="submission-image" 
                                          alt="Winner's submission"
-                                         data-bs-toggle="modal"
-                                         data-bs-target="#imageModal"
-                                         onclick="showImage('{{ result.winner.generated_image.url }}', '{{ result.winner.prompt|escapejs }}')">
+                                         onclick="showImage('{{ winner_image_url }}', '{{ result.winner.prompt|escapejs }}')">
                                 </div>
                             {% endif %}
                             <p><strong>Prompt:</strong> {{ result.winner.prompt }}</p>
@@ -42,12 +40,10 @@
                         <div class="card-body">
                             {% if result.loser.generated_image %}
                                 <div class="submission-image-container mb-3">
-                                    <img src="{{ result.loser.generated_image.url }}" 
+                                    <img src="{{ loser_image_url }}" 
                                          class="submission-image" 
                                          alt="Loser's submission"
-                                         data-bs-toggle="modal"
-                                         data-bs-target="#imageModal"
-                                         onclick="showImage('{{ result.loser.generated_image.url }}', '{{ result.loser.prompt|escapejs }}')">
+                                         onclick="showImage('{{ loser_image_url }}', '{{ result.loser.prompt|escapejs }}')">
                                 </div>
                             {% endif %}
                             <p><strong>Prompt:</strong> {{ result.loser.prompt }}</p>
@@ -139,6 +135,7 @@
 function showImage(src, prompt) {
     document.getElementById('modalImage').src = src;
     document.getElementById('modalPrompt').textContent = prompt;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
 }
 
 // Close modal on Escape key

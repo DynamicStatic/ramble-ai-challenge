@@ -1,53 +1,127 @@
 {% extends 'base.html' %}
 
+{% block title %}Challenges - Ramble{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-4">Challenges</h1>
-    
-    {% if user.is_staff %}
-    <div class="mb-4">
-        <a href="{% url 'create_challenge' %}" class="btn btn-primary">Create Daily Challenge</a>
-        <a href="{% url 'generate_random_challenge' %}" class="btn btn-secondary">Generate Random Challenge</a>
-    </div>
+
+    <!-- Daily Challenge -->
+    {% if daily_challenge %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h4 mb-0">Daily Challenge</h2>
+                <span class="badge bg-primary">Daily</span>
+            </div>
+            <div class="card-body">
+                <h3 class="h5">{{ daily_challenge.title }}</h3>
+                <p class="lead">{{ daily_challenge.description }}</p>
+                <p class="text-muted">
+                    Ends: {{ daily_challenge.end_date|date:"F j, Y, g:i a" }}
+                </p>
+                
+                {% if user.is_authenticated %}
+                    {% if daily_challenge.user_submission %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> You've submitted to this challenge
+                            <a href="{% url 'challenge_detail' daily_challenge.id %}" class="btn btn-sm btn-outline-success ms-3">View Submission</a>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-secondary">Login to Submit</a>
+                {% endif %}
+            </div>
+        </div>
     {% endif %}
-    
-    <!-- Daily Challenge Section -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h2 class="h4 mb-0">Daily Challenge</h2>
-        </div>
-        <div class="card-body">
-            {% if daily_challenge %}
-                <h3>{{ daily_challenge.title }}</h3>
-                <p>{{ daily_challenge.description }}</p>
-                <p class="text-muted">Ends: {{ daily_challenge.end_date|date:"F j, Y, g:i a" }}</p>
-                <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
-            {% else %}
-                <p>No daily challenge available at the moment.</p>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- Random Challenges Section -->
+
+    <!-- Random Challenges -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h4 mb-0">Random Challenges</h2>
+            {% if user.is_staff %}
+                <a href="{% url 'generate_random_challenge' %}" class="btn btn-sm btn-outline-light">Generate New Challenge</a>
+            {% endif %}
         </div>
         <div class="card-body">
             {% if random_challenges %}
-                {% for challenge in random_challenges %}
-                    <div class="mb-4">
-                        <h3>{{ challenge.title }}</h3>
-                        <p>{{ challenge.description }}</p>
-                        <p class="text-muted">Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}</p>
-                        <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit Entry</a>
-                    </div>
-                    {% if not forloop.last %}<hr>{% endif %}
-                {% endfor %}
+                <div class="row">
+                    {% for challenge in random_challenges %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="h5">{{ challenge.title }}</h3>
+                                    <p>{{ challenge.description }}</p>
+                                    <p class="text-muted">
+                                        Ends: {{ challenge.end_date|date:"F j, Y, g:i a" }}
+                                    </p>
+                                    
+                                    {% if user.is_authenticated %}
+                                        {% if challenge.user_submission %}
+                                            <div class="alert alert-success">
+                                                <i class="fas fa-check-circle"></i> You've submitted to this challenge
+                                                <a href="{% url 'challenge_detail' challenge.id %}" class="btn btn-sm btn-outline-success ms-3">View Submission</a>
+                                            </div>
+                                        {% else %}
+                                            <a href="{% url 'submit_challenge' challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                                        {% endif %}
+                                    {% else %}
+                                        <a href="{% url 'login' %}" class="btn btn-secondary">Login to Submit</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
             {% else %}
-                <p>No random challenges available at the moment.</p>
+                <p class="text-center">No random challenges available at the moment.</p>
             {% endif %}
         </div>
     </div>
 </div>
+
+<style>
+    .card {
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        background: var(--primary-color);
+        color: var(--light-color);
+        border-bottom: none;
+    }
+
+    .badge {
+        font-size: 0.8rem;
+        padding: 0.5em 1em;
+    }
+
+    .alert {
+        margin-bottom: 0;
+        padding: 0.75rem 1rem;
+    }
+
+    .alert-success {
+        background: rgba(22, 160, 133, 0.1);
+        border: none;
+        color: var(--dark-color);
+    }
+
+    .btn-outline-success {
+        color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+
+    .btn-outline-success:hover {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .text-muted {
+        color: rgba(0, 0, 0, 0.6) !important;
+    }
+</style>
 {% endblock %} 

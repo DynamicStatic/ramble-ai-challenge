@@ -22,8 +22,6 @@
                                     <img src="{{ submission.generated_image.url }}" 
                                          class="submission-image" 
                                          alt="Opponent's submission"
-                                         data-bs-toggle="modal"
-                                         data-bs-target="#imageModal"
                                          onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
                                 </div>
                             {% endif %}
@@ -56,7 +54,8 @@
                                                         {% if user_submission.generated_image %}
                                                             <img src="{{ user_submission.generated_image.url }}" 
                                                                  class="me-2" 
-                                                                 style="width: 50px; height: 50px; object-fit: cover;">
+                                                                 style="width: 50px; height: 50px; object-fit: cover;"
+                                                                 onclick="showImage('{{ user_submission.generated_image.url }}', '{{ user_submission.prompt|escapejs }}')">
                                                         {% endif %}
                                                         <div>
                                                             <strong>Submission #{{ user_submission.submission_number }}</strong>
@@ -148,6 +147,7 @@
 function showImage(src, prompt) {
     document.getElementById('modalImage').src = src;
     document.getElementById('modalPrompt').textContent = prompt;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
 }
 
 // Close modal on Escape key

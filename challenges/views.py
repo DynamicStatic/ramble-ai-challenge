@@ -11,7 +11,7 @@ import requests
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from .forms import UserProfileForm, ChallengeForm
-from django.db.models import Count
+from django.db.models import Count, Q
 import base64
 from io import BytesIO
 from PIL import Image
@@ -96,12 +96,30 @@ def home(request):
     completed_challenges = Challenge.objects.filter(
         end_date__lt=timezone.now()
     ).order_by('-end_date')[:10]
+
+    # Get challenge results for the current user
+    if request.user.is_authenticated:
+        challenge_results = ChallengeResult.objects.filter(
+            Q(winner__user=request.user) | Q(loser__user=request.user)
+        ).select_related('winner', 'loser')
+        
+        # Create a dictionary of challenged submissions
+        challenged_submissions = set()
+        for result in challenge_results:
+            if result.winner.user == request.user:
+                challenged_submissions.add(result.loser.id)
+            else:
+                challenged_submissions.add(result.winner.id)
+    else:
+        challenged_submissions = set()
     
     context = {
         'daily_challenge': daily_challenge,
         'random_challenges': random_challenges,
         'submissions': submissions,
         'completed_challenges': completed_challenges,
+        'challenged_submissions': challenged_submissions,
+        'active_challenges': set(active_challenges.values_list('id', flat=True))
     }
     return render(request, 'challenges/home.html', context)
 
@@ -201,6 +219,16 @@ def submit_challenge(request, challenge_id):
 def challenge_user(request, submission_id):
     submission = get_object_or_404(UserSubmission, id=submission_id)
     
+    # Check if the user has already challenged this submission
+    existing_challenge = ChallengeResult.objects.filter(
+        Q(winner__user=request.user, loser=submission) |
+        Q(winner=submission, loser__user=request.user)
+    ).first()
+    
+    if existing_challenge:
+        messages.info(request, 'You have already challenged this submission.')
+        return redirect('challenge_result', result_id=existing_challenge.id)
+    
     # Get all submissions by the current user for this challenge
     user_submissions = UserSubmission.objects.filter(
         user=request.user,
@@ -220,25 +248,36 @@ def challenge_user(request, submission_id):
             
         user_submission = get_object_or_404(UserSubmission, id=user_submission_id, user=request.user)
         
-        # Use AI to judge the submissions
-        judge_prompt = f"""
-        You are an art critic judging two AI-generated images for a challenge. The challenge is: "{submission.challenge.description}"
-
-        Compare these two submissions and decide which one better meets the challenge criteria.
-        You MUST choose a winner - there cannot be a tie or no winner.
-        Keep your response brief and to the point - just 2-3 sentences explaining which submission wins and why.
-        Your response MUST end with either "Submission 1 wins" or "Submission 2 wins" on a new line.
-
-        Submission 1 (Your Submission):
-        Prompt: {user_submission.prompt}
-        Image: {user_submission.generated_image.url}
-
-        Submission 2 (Opponent's Submission):
-        Prompt: {submission.prompt}
-        Image: {submission.generated_image.url}
-        """
-        
         try:
+            # Generate captions using BLIP
+            print("Generating captions using BLIP...")
+            user_image_path = user_submission.generated_image.path
+            opponent_image_path = submission.generated_image.path
+            
+            user_caption = generate_image_caption(user_image_path)
+            opponent_caption = generate_image_caption(opponent_image_path)
+            
+            print(f"User image caption: {user_caption}")
+            print(f"Opponent image caption: {opponent_caption}")
+            
+            # Use AI to judge the submissions
+            judge_prompt = f"""
+            You are an art critic judging two AI-generated images for a challenge. The challenge is: "{submission.challenge.description}"
+
+            Compare these two submissions and decide which one better meets the challenge criteria.
+            You MUST choose a winner - there cannot be a tie or no winner.
+            Keep your response brief and to the point - just 2-3 sentences explaining which submission wins and why.
+            Your response MUST end with either "Submission 1 wins" or "Submission 2 wins" on a new line.
+
+            Submission 1 (Your Submission):
+            Prompt: {user_submission.prompt}
+            Image Description: {user_caption}
+
+            Submission 2 (Opponent's Submission):
+            Prompt: {submission.prompt}
+            Image Description: {opponent_caption}
+            """
+            
             # Make API call to OpenAI for judging
             headers = {
                 "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
@@ -246,24 +285,27 @@ def challenge_user(request, submission_id):
             }
             
             data = {
-                "model": "gpt-4-turbo",
+                "model": "gpt-4",
                 "messages": [
                     {
                         "role": "user",
                         "content": judge_prompt
                     }
                 ],
-                "max_tokens": 200  # Reduced token limit for shorter response
+                "max_tokens": 200
             }
             
+            print("Making request to OpenAI API...")
             response = requests.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers=headers,
                 json=data
             )
             response.raise_for_status()
+            print("Received response from OpenAI API")
             
             judge_feedback = response.json()['choices'][0]['message']['content']
+            print(f"Judge feedback: {judge_feedback}")
             
             # Parse the judge's feedback to determine winner
             feedback_lines = judge_feedback.lower().split('\n')
@@ -332,6 +374,10 @@ def challenge_user(request, submission_id):
             return redirect('challenge_result', result_id=challenge_result.id)
             
         except Exception as e:
+            print(f"Error in challenge_user: {str(e)}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             messages.error(request, f'Error judging submissions: {str(e)}')
             return redirect('challenge_user', submission_id=submission_id)
     
@@ -409,7 +455,17 @@ def challenge_result(request, result_id):
         if not result.winner.generated_image or not result.loser.generated_image:
             messages.error(request, 'Error: One or more images are missing.')
             return redirect('home')
-        return render(request, 'challenges/challenge_result.html', {'result': result})
+            
+        # Get full URLs for the images
+        winner_image_url = request.build_absolute_uri(result.winner.generated_image.url)
+        loser_image_url = request.build_absolute_uri(result.loser.generated_image.url)
+        
+        context = {
+            'result': result,
+            'winner_image_url': winner_image_url,
+            'loser_image_url': loser_image_url
+        }
+        return render(request, 'challenges/challenge_result.html', context)
     except Exception as e:
         messages.error(request, f'Error displaying challenge result: {str(e)}')
         return redirect('home')
@@ -447,6 +503,23 @@ def challenge_list(request):
     if not random_challenges.exists():
         Challenge.generate_random_challenge()
         random_challenges = active_challenges.filter(type='random')
+    
+    # Prefetch user submissions for all challenges
+    if request.user.is_authenticated:
+        user_submissions = UserSubmission.objects.filter(
+            user=request.user,
+            challenge__in=active_challenges
+        ).select_related('challenge')
+        
+        # Create a dictionary of challenge_id: submission for quick lookup
+        user_submission_dict = {sub.challenge_id: sub for sub in user_submissions}
+        
+        # Add user submission info to challenges
+        if daily_challenge:
+            daily_challenge.user_submission = user_submission_dict.get(daily_challenge.id)
+        
+        for challenge in random_challenges:
+            challenge.user_submission = user_submission_dict.get(challenge.id)
     
     context = {
         'daily_challenge': daily_challenge,
@@ -591,3 +664,6 @@ def get_comments(request, submission_id):
     } for comment in comments]
     
     return JsonResponse({'comments': comments_data})
+
+def about(request):
+    return render(request, 'challenges/about.html')

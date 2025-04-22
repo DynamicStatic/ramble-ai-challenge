@@ -1,26 +1,35 @@
 {% extends 'base.html' %}
 
+{% block title %}Home - Ramble{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-4">Welcome to Ramble AI Challenge</h1>
     
     <!-- Daily Challenge Section -->
+    {% if daily_challenge %}
     <div class="card mb-4">
         <div class="card-header">
-            <h2 class="h4 mb-0">Daily Challenge</h2>
+            <h2 class="h4 mb-0">Today's Challenge</h2>
         </div>
         <div class="card-body">
-            {% if daily_challenge %}
-                <h3>{{ daily_challenge.title }}</h3>
-                <p>{{ daily_challenge.description }}</p>
-                <p class="text-muted">Ends: {{ daily_challenge.end_date|date:"F j, Y, g:i a" }}</p>
-                <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
-                <a href="{% url 'challenge_detail' daily_challenge.id %}" class="btn btn-secondary">View Details</a>
+            <h3 class="h5">{{ daily_challenge.title }}</h3>
+            <p class="lead">{{ daily_challenge.description }}</p>
+            {% if user.is_authenticated %}
+                {% if daily_challenge.user_submission %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> You've already submitted an entry!
+                    </div>
+                    <a href="{% url 'challenge_detail' daily_challenge.id %}" class="btn btn-primary">View Your Submission</a>
+                {% else %}
+                    <a href="{% url 'submit_challenge' daily_challenge.id %}" class="btn btn-primary">Submit Entry</a>
+                {% endif %}
             {% else %}
-                <p>No daily challenge available at the moment.</p>
+                <a href="{% url 'login' %}" class="btn btn-primary">Login to Submit</a>
             {% endif %}
         </div>
     </div>
+    {% endif %}
     
     <!-- Random Challenges Section -->
     <div class="card mb-4">
@@ -51,38 +60,32 @@
             <h2 class="h4 mb-0">Recent Submissions</h2>
         </div>
         <div class="card-body">
-            {% if submissions %}
-                <div class="row">
-                    {% for submission in submissions %}
-                        <div class="col-md-4 mb-4">
-                            <div class="card h-100">
-                                {% if submission.generated_image %}
-                                    <div class="submission-image-container">
-                                        <img src="{{ submission.generated_image.url }}" 
-                                             class="submission-image" 
-                                             alt="Submission image"
-                                             data-bs-toggle="modal"
-                                             data-bs-target="#imageModal"
-                                             onclick="showImage('{{ submission.generated_image.url }}', '{{ submission.prompt|escapejs }}')">
+            <div class="row">
+                {% for submission in submissions %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        {% if submission.generated_image %}
+                        <img src="{{ submission.generated_image.url }}" class="card-img-top" alt="Generated image">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ submission.challenge.title }}</h5>
+                            <p class="card-text">{{ submission.prompt }}</p>
+                            <p class="card-text"><small class="text-muted">By {{ submission.user.username }}</small></p>
+                            
+                            {% if user.is_authenticated and user != submission.user %}
+                                {% if submission.id in challenged_submissions %}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-check-circle"></i> You've already challenged this submission
                                     </div>
+                                {% elif submission.challenge.id in active_challenges %}
+                                    <a href="{% url 'challenge_user' submission.id %}" class="btn btn-primary">Challenge This Entry</a>
                                 {% endif %}
-                                <div class="card-body">
-                                    <h5 class="card-title">By {{ submission.user.username }}</h5>
-                                    <p class="card-text">
-                                        <small class="text-muted">Submitted: {{ submission.created_at|date:"F j, Y" }}</small>
-                                    </p>
-                                    <p class="card-text">{{ submission.prompt|truncatechars:100 }}</p>
-                                    {% if user.is_authenticated and user != submission.user %}
-                                        <a href="{% url 'challenge_user' submission.id %}" class="btn btn-warning btn-sm">Challenge This Entry</a>
-                                    {% endif %}
-                                </div>
-                            </div>
+                            {% endif %}
                         </div>
-                    {% endfor %}
+                    </div>
                 </div>
-            {% else %}
-                <p>No submissions yet. Be the first to submit!</p>
-            {% endif %}
+                {% endfor %}
+            </div>
         </div>
     </div>
     
@@ -92,21 +95,19 @@
             <h2 class="h4 mb-0">Completed Challenges</h2>
         </div>
         <div class="card-body">
-            {% if completed_challenges %}
-                <div class="list-group">
-                    {% for challenge in completed_challenges %}
-                        <a href="{% url 'challenge_detail' challenge.id %}" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1">{{ challenge.title }}</h5>
-                                <small class="text-muted">Ended: {{ challenge.end_date|date:"F j, Y" }}</small>
-                            </div>
-                            <p class="mb-1">{{ challenge.description|truncatechars:100 }}</p>
-                        </a>
-                    {% endfor %}
+            <div class="row">
+                {% for challenge in completed_challenges %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ challenge.title }}</h5>
+                            <p class="card-text">{{ challenge.description }}</p>
+                            <a href="{% url 'challenge_detail' challenge.id %}" class="btn btn-secondary">View Submissions</a>
+                        </div>
+                    </div>
                 </div>
-            {% else %}
-                <p>No completed challenges yet.</p>
-            {% endif %}
+                {% endfor %}
+            </div>
         </div>
     </div>
 </div>
@@ -167,6 +168,17 @@
     .modal-body {
         padding: 0;
         height: calc(100vh - 60px);
+    }
+
+    .alert {
+        margin-bottom: 0;
+        padding: 0.75rem 1rem;
+    }
+
+    .alert-info {
+        background: rgba(26, 95, 122, 0.1);
+        border: none;
+        color: var(--dark-color);
     }
 </style>
 {% endblock %}
