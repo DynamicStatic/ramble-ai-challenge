@@ -84,7 +84,20 @@ def home(request):
     ).order_by('-created_at')
     
     # Get daily challenge
-    daily_challenge = active_challenges.filter(type='daily').first()
+    daily_challenge = DailyChallenge.objects.filter(is_active=True).order_by('-date').first()
+    
+    # If we have a daily challenge, create or get the corresponding Challenge object
+    if daily_challenge:
+        challenge, created = Challenge.objects.get_or_create(
+            title=daily_challenge.title,
+            description=daily_challenge.description,
+            type='daily',
+            defaults={
+                'end_date': timezone.now() + timezone.timedelta(days=1),
+                'is_active': True
+            }
+        )
+        daily_challenge = challenge
     
     # Get random challenges
     random_challenges = active_challenges.filter(type='random')
@@ -125,7 +138,26 @@ def home(request):
 
 @login_required
 def submit_challenge(request, challenge_id):
-    challenge = get_object_or_404(Challenge, id=challenge_id)
+    # Try to get the challenge from both models
+    challenge = None
+    try:
+        challenge = Challenge.objects.get(id=challenge_id)
+    except Challenge.DoesNotExist:
+        try:
+            daily_challenge = DailyChallenge.objects.get(id=challenge_id)
+            # Create a Challenge object from the DailyChallenge
+            challenge, created = Challenge.objects.get_or_create(
+                title=daily_challenge.title,
+                description=daily_challenge.description,
+                type='daily',
+                defaults={
+                    'end_date': timezone.now() + timezone.timedelta(days=1),
+                    'is_active': True
+                }
+            )
+        except DailyChallenge.DoesNotExist:
+            messages.error(request, 'Challenge not found.')
+            return redirect('challenge_list')
     
     if not challenge.is_active or challenge.end_date < timezone.now():
         messages.error(request, 'This challenge is no longer active.')

@@ -1,5 +1,16 @@
 from django.contrib import admin
-from .models import DailyChallenge, UserSubmission, ChallengeResult, UserProfile
+from .models import Challenge, DailyChallenge, UserSubmission, ChallengeResult, UserProfile
+
+@admin.register(Challenge)
+class ChallengeAdmin(admin.ModelAdmin):
+    list_display = ('title', 'type', 'created_at', 'end_date', 'is_active', 'submission_count')
+    list_filter = ('type', 'is_active', 'created_at')
+    search_fields = ('title', 'description')
+    ordering = ('-created_at',)
+    
+    def submission_count(self, obj):
+        return obj.usersubmission_set.count()
+    submission_count.short_description = 'Submissions'
 
 @admin.register(DailyChallenge)
 class DailyChallengeAdmin(admin.ModelAdmin):
@@ -10,7 +21,7 @@ class DailyChallengeAdmin(admin.ModelAdmin):
     actions = ['activate_challenges', 'deactivate_challenges']
     
     def submission_count(self, obj):
-        return obj.usersubmission_set.count()
+        return UserSubmission.objects.filter(challenge__title=obj.title).count()
     submission_count.short_description = 'Submissions'
     
     def activate_challenges(self, request, queryset):
